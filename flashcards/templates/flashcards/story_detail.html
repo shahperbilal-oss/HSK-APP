@@ -1,0 +1,130 @@
+{% extends 'flashcards/base.html' %}
+{% block content %}
+<div class="glass-panel">
+    <div class="page-header">
+        <div>
+            <h2>{{ story.title }}</h2>
+            <p>
+                <span class="badge badge-pink">HSK {{ story.level }}</span>
+                <span class="subtle" style="margin-left:0.6rem;">Hover words for meaning, click to save.</span>
+            </p>
+        </div>
+        <div style="display:flex; gap:0.5rem; flex-wrap:wrap; justify-content:flex-end;">
+            <a href="?show_pinyin={% if show_pinyin %}0{% else %}1{% endif %}" class="pill">
+                {% if show_pinyin %}Hide Pinyin{% else %}Show Pinyin{% endif %}
+            </a>
+            <a href="{% url 'saved_words' %}" class="pill">Saved Words</a>
+            <a href="{% url 'export_saved_words_pdf' %}" class="pill is-active">Export PDF</a>
+        </div>
+    </div>
+
+    {% if story.vocabulary %}
+    <div style="margin-top:1rem; padding:0.9rem; border:1px solid rgba(255,255,255,0.2); border-radius:0.5rem;">
+        <strong>Vocabulary Used</strong>
+        <ul style="margin-top:0.6rem;">
+            {% for vocab in story.vocabulary %}
+            <li style="margin-bottom:0.4rem;">
+                <span style="color:#f472b6;">{{ vocab.chinese }}</span>
+                {% if vocab.pinyin %}<span style="color:#6366f1;"> ({{ vocab.pinyin }})</span>{% endif %}
+                <span style="color:#888;"> - {{ vocab.english }}</span>
+            </li>
+            {% endfor %}
+        </ul>
+    </div>
+    {% endif %}
+
+    {% if story.grammar_points %}
+    <div style="margin-top:1rem; padding:0.9rem; border:1px solid rgba(255,255,255,0.2); border-radius:0.5rem;">
+        <strong>Grammar Points</strong>
+        <ul style="margin-top:0.6rem;">
+            {% for point in story.grammar_points %}
+            <li style="margin-bottom:0.35rem; color:#a78bfa;">{{ point }}</li>
+            {% endfor %}
+        </ul>
+    </div>
+    {% endif %}
+
+    <p id="save-word-status" style="font-size:0.9rem; color:#10b981; min-height:1.2rem; margin-top:0.35rem;"></p>
+
+    <div style="margin-top:1rem;">
+        <strong>Chinese</strong>
+        <div style="margin-top:0.7rem;">
+            {% for line in chinese_lines %}
+            <p class="story-line" style="font-size:1.1rem; color:#f472b6;">{% for token in line %}<span class="saveable-word" data-word="{{ token }}">{{ token }}</span>{% endfor %}</p>
+            {% endfor %}
+        </div>
+    </div>
+
+    {% if show_pinyin and story.pinyin_text %}
+    <div style="margin-top:1rem;">
+        <strong>Pinyin</strong>
+        <p style="white-space:pre-line; color:#6366f1; background:rgba(255,255,255,0.03); border:1px solid rgba(255,255,255,0.12); padding:0.9rem; border-radius:0.75rem;">{{ story.pinyin_text }}</p>
+    </div>
+    {% endif %}
+
+    {% if story.english_translation %}
+    <div style="margin-top:1rem;">
+        <strong>English</strong>
+        <p style="white-space:pre-line; color:#94a3b8; background:rgba(255,255,255,0.03); border:1px solid rgba(255,255,255,0.12); padding:0.9rem; border-radius:0.75rem;">{{ story.english_translation }}</p>
+    </div>
+    {% endif %}
+
+    <div style="margin-top:2rem;">
+        <a href="{% url 'story_store' %}" class="btn">Back to Story Store</a>
+    </div>
+</div>
+<script>
+function getCookie(name) {
+    const cookieValue = document.cookie
+        .split('; ')
+        .find(row => row.startsWith(name + '='));
+    return cookieValue ? decodeURIComponent(cookieValue.split('=')[1]) : null;
+}
+
+const storyId = "{{ story.id }}";
+const saveUrl = "{% url 'save_story_word' story.id %}";
+const statusEl = document.getElementById("save-word-status");
+const csrfTokenFallback = "{{ csrf_token }}";
+const vocabLookup = {{ vocab_lookup_json|safe }};
+
+document.querySelectorAll(".saveable-word").forEach((el) => {
+    const token = (el.dataset.word || "").trim();
+    const vocab = vocabLookup[token];
+    if (vocab && (vocab.pinyin || vocab.english)) {
+        const tip = [vocab.pinyin, vocab.english].filter(Boolean).join(" - ");
+        el.setAttribute("title", tip);
+        el.classList.add("has-meaning");
+    }
+
+    el.addEventListener("click", async () => {
+        const word = token;
+        if (!word || !word.trim()) return;
+
+        const response = await fetch(saveUrl, {
+            method: "POST",
+            headers: {
+                "Content-Type": "application/json",
+                "X-CSRFToken": getCookie("csrftoken") || csrfTokenFallback,
+            },
+            body: JSON.stringify({
+                word: word.trim(),
+                pinyin: vocab ? (vocab.pinyin || "") : "",
+                english: vocab ? (vocab.english || "") : "",
+            }),
+        });
+
+        if (response.ok) {
+            const data = await response.json();
+            statusEl.textContent = data.created
+                ? `Saved word: ${data.word}`
+                : `Updated saved word: ${data.word}`;
+            el.classList.add("saved-word");
+        } else {
+            const text = await response.text();
+            statusEl.textContent = "Could not save word. " + text.slice(0, 120);
+            statusEl.style.color = "#ef4444";
+        }
+    });
+});
+</script>
+{% endblock %}

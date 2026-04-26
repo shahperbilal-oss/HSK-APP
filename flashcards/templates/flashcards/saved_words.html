@@ -1,0 +1,47 @@
+{% extends 'flashcards/base.html' %}
+{% block content %}
+<div class="glass-panel">
+    <div class="page-header">
+        <div>
+            <h2>Saved Words</h2>
+            <p>Your words saved from stories and reading.</p>
+        </div>
+        <div>
+            <a href="{% url 'export_saved_words_pdf' %}" class="btn" style="background:#10b981;">Export PDF</a>
+        </div>
+    </div>
+
+    {% if saved_words %}
+    <div class="table-container">
+        <table>
+            <thead>
+                <tr>
+                    <th>Chinese</th>
+                    <th>Pinyin</th>
+                    <th>English</th>
+                    <th>Source</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for item in saved_words %}
+                <tr>
+                    <td style="font-size:1.15rem;">{{ item.word }}</td>
+                    <td>{{ item.pinyin|default:"-" }}</td>
+                    <td>{{ item.english|default:"-" }}</td>
+                    <td>
+                        {% if item.story %}
+                        <a href="{% url 'story_detail' item.story.id %}">{{ item.story.title }}</a>
+                        {% else %}
+                        -
+                        {% endif %}
+                    </td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+    {% else %}
+    <p>No saved words yet. Open a story and click words to save them.</p>
+    {% endif %}
+</div>
+{% endblock %}

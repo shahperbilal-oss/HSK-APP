@@ -1,0 +1,46 @@
+{% extends 'flashcards/base.html' %}
+{% block content %}
+<div class="glass-panel">
+    <div class="page-header">
+        <div>
+            <h2>Story Store</h2>
+            <p>Choose stories by HSK level.</p>
+        </div>
+    </div>
+
+    <div class="filter-bar">
+        <a href="{% url 'story_store' %}" class="pill">All</a>
+        <a href="{% url 'story_store_level' 1 %}" class="pill">HSK 1</a>
+        <a href="{% url 'story_store_level' 2 %}" class="pill">HSK 2</a>
+        <a href="{% url 'story_store_level' 3 %}" class="pill">HSK 3</a>
+        <a href="{% url 'story_store_level' 4 %}" class="pill">HSK 4</a>
+    </div>
+
+    {% for group in grouped_stories %}
+    <div style="margin-top:1.5rem;">
+        <h3>HSK {{ group.level }}</h3>
+        {% if group.stories %}
+        <div class="card-grid">
+            {% for story in group.stories %}
+            <a class="ui-card" href="{% url 'story_detail' story.pk %}" style="text-decoration:none;">
+                <div style="display:flex; justify-content:space-between; gap:0.75rem; align-items:flex-start;">
+                    <div>
+                        <div style="font-weight:800; color:var(--text-main);">{{ story.title }}</div>
+                        <div class="subtle" style="margin-top:0.35rem;">Click to read with hover meanings & saving</div>
+                    </div>
+                    <span class="badge badge-pink">HSK {{ story.level }}</span>
+                </div>
+            </a>
+            {% endfor %}
+        </div>
+        {% else %}
+        <p style="opacity:0.75;">No stories yet for this level.</p>
+        {% endif %}
+    </div>
+    {% endfor %}
+
+    <div style="margin-top:2rem;">
+        <a href="{% url 'dashboard' %}" class="btn">Back to Dashboard</a>
+    </div>
+</div>
+{% endblock %}

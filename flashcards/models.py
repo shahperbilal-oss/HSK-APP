@@ -19,6 +19,11 @@ class GrammarPoint(models.Model):
     example_cn = models.TextField(blank=True)
     example_pinyin = models.TextField(blank=True)
     example_en = models.TextField(blank=True)
+    examples = models.JSONField(
+        blank=True,
+        default=list,
+        help_text="List of examples, each with cn/pinyin/en keys",
+    )
     
     def __str__(self):
         return f"HSK {self.level}: {self.title}"
@@ -39,6 +44,14 @@ class Word(models.Model):
     radical = models.CharField(max_length=50, blank=True, help_text="Primary radical of the character(s)")
     stroke_count = models.IntegerField(null=True, blank=True, help_text="Total stroke count")
     frequency_rank = models.IntegerField(null=True, blank=True, help_text="Frequency rank in common usage")
+
+    class Meta:
+        constraints = [
+            models.UniqueConstraint(
+                fields=["hsk_level", "chinese", "pinyin"],
+                name="unique_word_per_level_chinese_pinyin",
+            )
+        ]
     
     def __str__(self):
         return f"{self.chinese} (HSK {self.hsk_level})"
@@ -321,3 +334,85 @@ class TextSegment(models.Model):
     def __str__(self):
         preview = self.chinese_text[:30] + "..." if len(self.chinese_text) > 30 else self.chinese_text
         return f"Segment {self.order}: {preview}"
+
+
+class Story(models.Model):
+    """Short stories categorized by HSK level."""
+    HSK_LEVELS = [
+        (1, "HSK 1"),
+        (2, "HSK 2"),
+        (3, "HSK 3"),
+        (4, "HSK 4"),
+    ]
+
+    level = models.IntegerField(choices=HSK_LEVELS)
+    title = models.CharField(max_length=200)
+    chinese_text = models.TextField()
+    pinyin_text = models.TextField(blank=True)
+    english_translation = models.TextField(blank=True)
+    vocabulary = models.JSONField(
+        blank=True,
+        default=list,
+        help_text="List of vocabulary items with chinese, pinyin, and english.",
+    )
+    grammar_points = models.JSONField(
+        blank=True,
+        default=list,
+        help_text="List of grammar point labels used in this story.",
+    )
+
+    class Meta:
+        ordering = ["level", "title"]
+
+    def __str__(self):
+        return f"HSK {self.level}: {self.title}"
+
+
+class SavedWord(models.Model):
+    """Words saved by users from stories or other pages."""
+    user = models.ForeignKey(User, on_delete=models.CASCADE, related_name="saved_words")
+    story = models.ForeignKey(Story, on_delete=models.SET_NULL, null=True, blank=True, related_name="saved_words")
+    word = models.CharField(max_length=100)
+    pinyin = models.CharField(max_length=120, blank=True)
+    english = models.TextField(blank=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        ordering = ["-created_at"]
+        constraints = [
+            models.UniqueConstraint(fields=["user", "word"], name="unique_saved_word_per_user")
+        ]
+
+    def __str__(self):
+        return f"{self.user.username}: {self.word}"
+
+
+class Dialogue(models.Model):
+    """Practical dialogues categorized by scenario and HSK level."""
+    CATEGORY_CHOICES = [
+        ("gym", "Gym"),
+        ("class", "Class"),
+        ("home", "Home"),
+        ("friends", "With Friends"),
+        ("import_export", "Import / Export Business"),
+    ]
+    HSK_LEVELS = [
+        (1, "HSK 1"),
+        (2, "HSK 2"),
+        (3, "HSK 3"),
+        (4, "HSK 4"),
+    ]
+
+    title = models.CharField(max_length=200)
+    category = models.CharField(max_length=30, choices=CATEGORY_CHOICES)
+    level = models.IntegerField(choices=HSK_LEVELS)
+    lines = models.JSONField(
+        default=list,
+        help_text="List of dialogue lines, each with speaker/cn/pinyin/en keys.",
+    )
+
+    class Meta:
+        ordering = ["category", "level", "title"]
+
+    def __str__(self):
+        return f"{self.get_category_display()} - {self.title}"

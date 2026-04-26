@@ -1,8 +1,20 @@
 {% extends 'flashcards/base.html' %}
 {% block content %}
 <div class="glass-panel">
-    <h2>Complete HSK Vocabulary List</h2>
-    <p>Browse all words from HSK levels 1 through 4.</p>
+    <div class="page-header">
+        <div>
+            <h2>Vocabulary List</h2>
+            <p>Browse words by HSK level.</p>
+        </div>
+    </div>
+
+    <div class="filter-bar">
+        <a class="pill" href="{% url 'word_list' %}">All</a>
+        <a class="pill" href="{% url 'word_list' %}?level=1">HSK 1</a>
+        <a class="pill" href="{% url 'word_list' %}?level=2">HSK 2</a>
+        <a class="pill" href="{% url 'word_list' %}?level=3">HSK 3</a>
+        <a class="pill" href="{% url 'word_list' %}?level=4">HSK 4</a>
+    </div>
     
     <div class="table-container">
         <table>

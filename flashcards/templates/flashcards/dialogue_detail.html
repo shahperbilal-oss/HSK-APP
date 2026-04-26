@@ -1,0 +1,28 @@
+{% extends 'flashcards/base.html' %}
+{% block content %}
+<div class="glass-panel">
+    <h2>{{ dialogue.title }}</h2>
+    <p style="margin-bottom:0.6rem;">
+        <span style="color:#a78bfa;">{{ dialogue.get_category_display }}</span> |
+        <span style="color:#f472b6;">HSK {{ dialogue.level }}</span>
+    </p>
+
+    <div style="margin:1rem 0;">
+        <a href="?show_pinyin={% if show_pinyin %}0{% else %}1{% endif %}" class="btn">
+            {% if show_pinyin %}Hide Pinyin{% else %}Show Pinyin{% endif %}
+        </a>
+        <a href="{% url 'dialogue_list' %}" class="btn" style="margin-left:0.5rem;">Back to Dialogues</a>
+    </div>
+
+    {% for line in dialogue.lines %}
+    <div style="margin:0.9rem 0; padding:0.75rem; border:1px solid rgba(255,255,255,0.2); border-radius:0.5rem;">
+        <strong style="color:#10b981;">{{ line.speaker }}</strong>
+        <p style="font-size:1.05rem; color:#f472b6; margin-top:0.35rem;">{{ line.cn }}</p>
+        {% if show_pinyin and line.pinyin %}
+        <p style="color:#6366f1;">{{ line.pinyin }}</p>
+        {% endif %}
+        <p style="color:#888;">{{ line.en }}</p>
+    </div>
+    {% endfor %}
+</div>
+{% endblock %}

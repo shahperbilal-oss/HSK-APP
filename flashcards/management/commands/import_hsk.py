@@ -7,10 +7,13 @@ class Command(BaseCommand):
     help = 'Import HSK words from PDFs'
 
     def handle(self, *args, **options):
-        base_path = r"c:\Users\mudas\OneDrive\Desktop\HSK\HSK Words"
-        
-        Word.objects.all().delete()  # Clear existing
-        
+        # Use project root by default so PDFs in this repo are picked up.
+        project_root = os.path.abspath(os.path.join(os.path.dirname(__file__), "../../.."))
+        base_path = project_root
+
+        created_total = 0
+        updated_total = 0
+
         for level in range(1, 5):
             file_path = os.path.join(base_path, f"New-HSK-{level}-Word-List.pdf")
             if not os.path.exists(file_path):
@@ -39,13 +42,17 @@ class Command(BaseCommand):
                         state = "ENGLISH"
                     elif state == "ENGLISH":
                         current_word['english'] = line
-                        # Save the word
-                        Word.objects.create(
+                        # Upsert to avoid destructive full-table deletes.
+                        _, created = Word.objects.update_or_create(
                             hsk_level=level,
                             chinese=current_word['chinese'],
                             pinyin=current_word['pinyin'],
-                            english=current_word['english']
+                            defaults={'english': current_word['english']},
                         )
+                        if created:
+                            created_total += 1
+                        else:
+                            updated_total += 1
                         expected_id += 1
                         state = "WAIT_ID"
                         # It's possible the english wraps to the next line, but we assume it's one block. 
@@ -55,3 +62,9 @@ class Command(BaseCommand):
                         
             doc.close()
             self.stdout.write(self.style.SUCCESS(f"Finished Level {level}. Loaded {expected_id - 1} words."))
+
+        self.stdout.write(
+            self.style.SUCCESS(
+                f"Import complete. Created {created_total} words, updated {updated_total} words."
+            )
+        )

@@ -1,0 +1,40 @@
+{% extends 'flashcards/base.html' %}
+{% block content %}
+<div class="glass-panel" style="text-align:center;">
+    <div class="page-header" style="justify-content:center;">
+        <div>
+            <h2>Choose an HSK Level</h2>
+            <p>Flashcards are organized by level. Pick one level to focus on.</p>
+        </div>
+    </div>
+
+    <div class="card-grid" style="margin-top:1rem; text-align:left;">
+        {% for ls in level_stats %}
+        <a class="ui-card" href="{% url 'study_session_level' ls.level %}" style="text-decoration:none;">
+            <div style="display:flex; justify-content:space-between; align-items:center;">
+                <div style="font-weight:800; color:var(--text-main);">HSK {{ ls.level }}</div>
+                {% if ls.level == 1 %}
+                <span class="badge badge-pink">Beginner</span>
+                {% elif ls.level == 3 %}
+                <span class="badge badge-green">Intermediate</span>
+                {% else %}
+                <span class="badge">Level {{ ls.level }}</span>
+                {% endif %}
+            </div>
+
+            <div class="subtle" style="margin-top:0.6rem; display:flex; gap:0.9rem; flex-wrap:wrap;">
+                <span><strong style="color:var(--text-main);">{{ ls.total }}</strong> total</span>
+                <span><strong style="color:#10b981;">{{ ls.mastered }}</strong> mastered</span>
+                <span><strong style="color:#f59e0b;">{{ ls.learning }}</strong> learning</span>
+                <span><strong style="color:#a78bfa;">{{ ls.new }}</strong> new</span>
+            </div>
+        </a>
+        {% endfor %}
+    </div>
+
+    <div style="margin-top:2rem;">
+        <a href="{% url 'dashboard' %}" class="btn" style="background:#64748b;">Back to Dashboard</a>
+    </div>
+</div>
+{% endblock %}
+

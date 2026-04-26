@@ -1,137 +1,44 @@
 {% extends "flashcards/base.html" %}
 
 {% block content %}
-<div class="dashboard-header">
-    <h2>📚 HSK Standard Course Books</h2>
-    <p>Select a book to start reading with pinyin, translations, and text-to-speech audio.</p>
+<div class="glass-panel">
+<div class="page-header">
+    <div>
+        <h2>HSK Standard Course Books</h2>
+        <p>Select a book to start reading with pinyin, translations, and text-to-speech audio.</p>
+    </div>
 </div>
 
-<div class="books-grid">
+<div class="card-grid">
     {% for book in books %}
-    <div class="book-card">
-        <div class="book-level-badge">HSK {{ book.hsk_level }}</div>
-        <h3>{{ book.title }}</h3>
-        {% if book.description %}
-        <p class="book-description">{{ book.description|truncatewords:20 }}</p>
-        {% endif %}
-        <div class="book-stats">
+    <a class="ui-card" href="{% url 'chapter_list' book.id %}" style="text-decoration:none;">
+        <div style="display:flex; justify-content:space-between; align-items:flex-start; gap:0.75rem;">
+            <div>
+                <div style="font-weight:800; color:var(--text-main); font-size:1.1rem;">{{ book.title }}</div>
+                {% if book.description %}
+                <div class="subtle" style="margin-top:0.45rem;">{{ book.description|truncatewords:22 }}</div>
+                {% endif %}
+            </div>
+            <span class="badge">HSK {{ book.hsk_level }}</span>
+        </div>
+
+        <div class="subtle" style="margin-top:0.8rem; display:flex; gap:1rem; flex-wrap:wrap;">
             <span>📖 {{ book.get_chapter_count }} chapters</span>
             <span>📝 {{ book.get_segment_count }} segments</span>
         </div>
-        <a href="{% url 'chapter_list' book.id %}" class="btn btn-primary">Open Book</a>
-    </div>
-    {% empty %}
-    <div class="empty-state">
-        <h3>📚 No Books Available Yet</h3>
-        <p>Books will be added soon. Check back later!</p>
-        <div class="admin-hint">
-            <p><strong>Admin:</strong> Add books through the <a href="/admin/flashcards/book/">Django Admin</a></p>
+
+        <div style="margin-top:1rem;">
+            <span class="btn" style="display:inline-block;">Open Book</span>
         </div>
+    </a>
+    {% empty %}
+    <div class="ui-card" style="grid-column:1/-1; text-align:center;">
+        <h3 style="margin-bottom:0.5rem;">No Books Available Yet</h3>
+        <p>Books will be added soon. Check back later!</p>
+        <p class="subtle"><strong>Admin:</strong> Add books via <a href="/admin/flashcards/book/">Django Admin</a></p>
     </div>
     {% endfor %}
 </div>
 
-<style>
-.books-grid {
-    display: grid;
-    grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
-    gap: 2rem;
-    padding: 2rem 0;
-}
-
-.book-card {
-    background: white;
-    border-radius: 12px;
-    padding: 1.5rem;
-    box-shadow: 0 4px 6px rgba(0,0,0,0.1);
-    transition: transform 0.2s, box-shadow 0.2s;
-    position: relative;
-    overflow: hidden;
-}
-
-.book-card:hover {
-    transform: translateY(-4px);
-    box-shadow: 0 8px 12px rgba(0,0,0,0.15);
-}
-
-.book-level-badge {
-    position: absolute;
-    top: 1rem;
-    right: 1rem;
-    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-    color: white;
-    padding: 0.25rem 0.75rem;
-    border-radius: 20px;
-    font-size: 0.85rem;
-    font-weight: bold;
-}
-
-.book-card h3 {
-    margin: 0.5rem 0 1rem 0;
-    color: #1a202c;
-    font-size: 1.25rem;
-}
-
-.book-description {
-    color: #4a5568;
-    font-size: 0.9rem;
-    line-height: 1.5;
-    margin-bottom: 1rem;
-}
-
-.book-stats {
-    display: flex;
-    gap: 1rem;
-    color: #718096;
-    font-size: 0.85rem;
-    margin-bottom: 1rem;
-}
-
-.btn-primary {
-    display: inline-block;
-    width: 100%;
-    text-align: center;
-    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-    color: white;
-    padding: 0.75rem 1.5rem;
-    border-radius: 8px;
-    text-decoration: none;
-    font-weight: 600;
-    transition: opacity 0.2s;
-}
-
-.btn-primary:hover {
-    opacity: 0.9;
-}
-
-.empty-state {
-    grid-column: 1 / -1;
-    text-align: center;
-    padding: 3rem;
-    background: white;
-    border-radius: 12px;
-    box-shadow: 0 4px 6px rgba(0,0,0,0.1);
-}
-
-.empty-state h3 {
-    color: #1a202c;
-    margin-bottom: 0.5rem;
-}
-
-.empty-state p {
-    color: #4a5568;
-    margin-bottom: 1rem;
-}
-
-.admin-hint {
-    background: #f7fafc;
-    padding: 1rem;
-    border-radius: 8px;
-    margin-top: 1rem;
-}
-
-.admin-hint a {
-    color: #667eea;
-}
-</style>
+</div>
 {% endblock %}

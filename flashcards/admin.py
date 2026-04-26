@@ -1,5 +1,5 @@
 from django.contrib import admin
-from .models import Word, UserWord, UserProfile, GrammarPoint, Book, Chapter, TextSegment
+from .models import Word, UserWord, UserProfile, GrammarPoint, Book, Chapter, TextSegment, Story, SavedWord, Dialogue
 
 @admin.register(Word)
 class WordAdmin(admin.ModelAdmin):
@@ -72,3 +72,27 @@ class TextSegmentAdmin(admin.ModelAdmin):
     def has_audio(self, obj):
         return "✓" if obj.audio_file else "✗"
     has_audio.short_description = "Audio"
+
+
+@admin.register(Story)
+class StoryAdmin(admin.ModelAdmin):
+    list_display = ("title", "level")
+    list_filter = ("level",)
+    search_fields = ("title", "chinese_text", "pinyin_text", "english_translation")
+    ordering = ("level", "title")
+
+
+@admin.register(SavedWord)
+class SavedWordAdmin(admin.ModelAdmin):
+    list_display = ("word", "user", "story", "created_at")
+    list_filter = ("user", "story")
+    search_fields = ("word", "pinyin", "english", "user__username")
+    ordering = ("-created_at",)
+
+
+@admin.register(Dialogue)
+class DialogueAdmin(admin.ModelAdmin):
+    list_display = ("title", "category", "level")
+    list_filter = ("category", "level")
+    search_fields = ("title",)
+    ordering = ("category", "level", "title")

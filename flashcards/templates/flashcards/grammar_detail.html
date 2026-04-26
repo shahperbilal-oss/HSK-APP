@@ -12,7 +12,20 @@
         </div>
         {% endif %}
     </div>
-    {% if grammar.example_cn or grammar.example_en %}
+    {% if grammar.examples %}
+    <div style="margin:1rem 0;">
+        <strong>Examples:</strong>
+        {% for ex in grammar.examples %}
+        <div style="margin-top:1rem; padding:0.75rem; border:1px solid rgba(255,255,255,0.2); border-radius:0.5rem;">
+            <p style="font-size:1.1rem; color:#f472b6; margin:0;">{{ ex.cn }}</p>
+            {% if ex.pinyin %}
+            <p style="font-size:1rem; color:#6366f1; margin:0.4rem 0 0;">{{ ex.pinyin }}</p>
+            {% endif %}
+            <p style="font-size:1rem; color:#888; margin:0.4rem 0 0;">{{ ex.en }}</p>
+        </div>
+        {% endfor %}
+    </div>
+    {% elif grammar.example_cn or grammar.example_en %}
     <div style="margin:1rem 0;">
         <strong>Example:</strong>
         <p style="font-size:1.1rem; color:#f472b6;">{{ grammar.example_cn }}</p>
