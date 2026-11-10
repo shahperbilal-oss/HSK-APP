@@ -1,39 +1,39 @@
 from django.shortcuts import render, redirect, get_object_or_404
 from django.contrib.auth.decorators import login_required
+from django.db.models import Count, F, Q, Sum
 from django.utils import timezone
 from django.http import JsonResponse
 from django.http import HttpResponse
 from django.views.decorators.csrf import ensure_csrf_cookie, csrf_exempt
-from .models import Word, UserWord, UserProfile, Story, SavedWord, Dialogue
-from datetime import date
+from django.views.decorators.http import require_POST
+from django.utils.http import url_has_allowed_host_and_scheme
+from . import pinyin_text, scheduler, study_queue
+from .models import Word, UserWord, UserProfile, Review, Story, SavedWord, Dialogue
+from .study_queue import ensure_user_words
+from collections import Counter
+from datetime import timedelta
 import json
 import re
 import fitz
 import os
 
-def ensure_user_words(user):
-    """Create missing UserWord rows for all available words."""
-    total_words = Word.objects.count()
-    current_user_words = UserWord.objects.filter(user=user).count()
-    if current_user_words >= total_words:
-        return
+#: Words counted as hard: the label the scheduler derived, or the learner's pin.
+HARD_WORDS = Q(difficulty='hard') | Q(flagged=True)
+#: Statuses for a word that has been started but is not yet on a long interval.
+IN_PROGRESS = (scheduler.LEARNING, scheduler.RELEARNING)
 
-    existing_word_ids = set(UserWord.objects.filter(user=user).values_list('word_id', flat=True))
-    to_create = [
-        UserWord(user=user, word=word)
-        for word in Word.objects.exclude(id__in=existing_word_ids)
-    ]
-    if to_create:
-        UserWord.objects.bulk_create(to_create)
 
 # For this demo we'll use a dummy user if not logged in just so it works without auth setup immediately
 def get_user(request):
+    """Return the acting user.
+
+    Deliberately does not sync UserWord rows — that ran on every request and
+    cost two counts a page. Views that need the rows call ensure_user_words().
+    """
     if request.user.is_authenticated:
-        ensure_user_words(request.user)
         return request.user
     from django.contrib.auth.models import User
     user, created = User.objects.get_or_create(username='guest')
-    ensure_user_words(user)
     return user
 
 def get_or_create_profile(user):
@@ -50,8 +50,6 @@ def dashboard(request):
     # Reset daily goal if new day
     profile.reset_daily_goal()
     
-    user_words = UserWord.objects.filter(user=user)
-    
     total_words = Word.objects.count()
     if total_words == 0:
         return render(request, 'flashcards/dashboard.html', {
@@ -59,50 +57,60 @@ def dashboard(request):
             'profile': profile
         })
 
-    # Calculate overall statistics
-    total_mastered = user_words.filter(status='MASTERED').count()
-    total_learning = user_words.filter(status='LEARNING').count()
-    total_due = user_words.filter(next_review_date__lte=timezone.now(), status__in=['LEARNING', 'REVIEW']).count()
-    total_new = user_words.filter(status='NEW').count()
-    
-    # Get recent activity (last 7 days)
-    from datetime import timedelta
-    week_ago = timezone.now() - timedelta(days=7)
-    recent_reviews = user_words.filter(
-        last_reviewed__gte=week_ago,
-        last_reviewed__isnull=False
-    ).count()
-    
-    # Calculate accuracy
-    total_reviewed = user_words.filter(times_reviewed__gt=0).count()
-    if total_reviewed > 0:
-        avg_accuracy = sum(uw.calculate_retention_rate() for uw in user_words.filter(times_reviewed__gt=0)) / total_reviewed
-    else:
-        avg_accuracy = 0
-    
-    levels = []
-    for level in range(1, 5):
-        level_words = user_words.filter(word__hsk_level=level)
-        if level_words.exists():
-            levels.append({
-                'level': level,
-                'total': level_words.count(),
-                'mastered': level_words.filter(status='MASTERED').count(),
-                'learning': level_words.filter(status='LEARNING').count(),
-                'review_due': level_words.filter(next_review_date__lte=timezone.now()).count()
-            })
-    
+    ensure_user_words(user)
+    user_words = UserWord.objects.filter(user=user)
+    now = timezone.now()
+    due = Q(next_review_date__lte=now) & ~Q(status=scheduler.NEW)
+
+    # One pass over the table rather than a query per counter.
+    totals = user_words.aggregate(
+        mastered=Count('id', filter=Q(status=scheduler.MASTERED)),
+        learning=Count('id', filter=Q(status__in=IN_PROGRESS)),
+        new=Count('id', filter=Q(status=scheduler.NEW)),
+        due=Count('id', filter=due),
+        recent=Count('id', filter=Q(last_reviewed__gte=now - timedelta(days=7))),
+        answers=Sum('times_reviewed'),
+        correct=Sum('times_correct'),
+    )
+
+    # Accuracy over every answer given, rather than the mean of each word's
+    # percentage — that weighted a word answered once like one answered fifty
+    # times.
+    answers = totals['answers'] or 0
+    avg_accuracy = round((totals['correct'] or 0) / answers * 100, 1) if answers else 0
+
+    by_level = {
+        row['word__hsk_level']: row
+        for row in user_words.values('word__hsk_level').annotate(
+            total=Count('id'),
+            mastered=Count('id', filter=Q(status=scheduler.MASTERED)),
+            learning=Count('id', filter=Q(status__in=IN_PROGRESS)),
+            review_due=Count('id', filter=due),
+        )
+    }
+    levels = [
+        {
+            'level': level,
+            'total': by_level[level]['total'],
+            'mastered': by_level[level]['mastered'],
+            'learning': by_level[level]['learning'],
+            'review_due': by_level[level]['review_due'],
+        }
+        for level in range(1, 5)
+        if level in by_level
+    ]
+
     context = {
         'total_words': total_words,
         'levels': levels,
         'profile': profile,
         'stats': {
-            'total_mastered': total_mastered,
-            'total_learning': total_learning,
-            'total_due': total_due,
-            'total_new': total_new,
-            'recent_reviews': recent_reviews,
-            'avg_accuracy': round(avg_accuracy, 1),
+            'total_mastered': totals['mastered'],
+            'total_learning': totals['learning'],
+            'total_due': totals['due'],
+            'total_new': totals['new'],
+            'recent_reviews': totals['recent'],
+            'avg_accuracy': avg_accuracy,
             'goal_progress': profile.get_goal_progress(),
         }
     }
@@ -110,114 +118,113 @@ def dashboard(request):
 
 def init_user_words(request):
     """Utility to initialize UserWord models for all existing Words for the user."""
-    user = get_user(request)
-    words = Word.objects.all()
-    existing_user_words = UserWord.objects.filter(user=user).values_list('word_id', flat=True)
-    
-    new_user_words = []
-    for word in words:
-        if word.id not in existing_user_words:
-            new_user_words.append(UserWord(user=user, word=word))
-            
-    if new_user_words:
-        UserWord.objects.bulk_create(new_user_words)
-        
+    ensure_user_words(get_user(request))
     return redirect('dashboard')
 
 def study_levels(request):
     """Force users to pick an HSK level before studying."""
     user = get_user(request)
+    ensure_user_words(user)
+    study_queue.reset(request)  # A new level needs a new queue.
 
-    level_stats = []
-    for lvl in range(1, 5):
-        total = Word.objects.filter(hsk_level=lvl).count()
-        mastered = UserWord.objects.filter(user=user, word__hsk_level=lvl, status="MASTERED").count()
-        learning = UserWord.objects.filter(user=user, word__hsk_level=lvl, status__in=["LEARNING", "REVIEW"]).count()
-        new = UserWord.objects.filter(user=user, word__hsk_level=lvl, status="NEW").count()
-        level_stats.append(
-            {
-                "level": lvl,
-                "total": total,
-                "mastered": mastered,
-                "learning": learning,
-                "new": new,
-            }
+    now = timezone.now()
+    by_level = {
+        row['word__hsk_level']: row
+        for row in UserWord.objects.filter(user=user).values('word__hsk_level').annotate(
+            total=Count('id'),
+            mastered=Count('id', filter=Q(status=scheduler.MASTERED)),
+            learning=Count('id', filter=Q(status__in=IN_PROGRESS + (scheduler.REVIEW,))),
+            new=Count('id', filter=Q(status=scheduler.NEW)),
+            due=Count('id', filter=Q(next_review_date__lte=now) & ~Q(status=scheduler.NEW)),
         )
+    }
+    empty = {'total': 0, 'mastered': 0, 'learning': 0, 'new': 0, 'due': 0}
+    level_stats = [dict(empty, **by_level.get(level, {}), level=level) for level in range(1, 5)]
 
     return render(request, "flashcards/study_levels.html", {"level_stats": level_stats})
 
 def study_session(request, level=None):
     user = get_user(request)
     profile = get_or_create_profile(user)
+    profile.reset_daily_goal()
 
     if level is None:
         return redirect("study_levels")
-    
-    base_query = UserWord.objects.filter(user=user)
-    if level:
-        base_query = base_query.filter(word__hsk_level=level)
-        
-    # Get a word that needs review (prioritize forgotten/hard words)
-    due_word = base_query.filter(
-        next_review_date__lte=timezone.now(),
-        status__in=['LEARNING', 'REVIEW']
-    ).exclude(status='MASTERED').order_by('next_review_date', '-times_incorrect').first()
-    
-    # If no review words, get a new word
-    if not due_word:
-        due_word = base_query.filter(status='NEW').first()
-    
-    # Update session tracking
-    if due_word:
-        due_word.studied_in_session = False
-        due_word.session_correct = None
-        due_word.save()
-    
+
+    card = study_queue.next_card(request, user, profile, level)
+
     context = {
-        'card': due_word,
+        'card': card,
         'level': level,
         'profile': profile,
         'words_studied_today': profile.words_studied_today,
         'daily_goal': profile.daily_goal,
+        'new_cards_remaining': profile.new_cards_remaining(),
         'stats': {
             'goal_progress': profile.get_goal_progress(),
         },
     }
     return render(request, 'flashcards/study.html', context)
 
+@require_POST
 def review_action(request, word_id, action):
+    """Grade a card. POST only — these links used to be plain <a href>, so any
+    prefetcher or crawler could silently grade a learner's whole deck."""
     user = get_user(request)
     profile = get_or_create_profile(user)
-    
+    profile.reset_daily_goal()
+
+    user_word = UserWord.objects.filter(user=user, id=word_id).select_related('word').first()
+    if user_word is None:
+        return _back_to_study(request)
+
+    if action == 'flag':
+        user_word.flagged = not user_word.flagged
+        user_word.save(update_fields=['flagged'])
+        return _back_to_study(request)
+
+    rating = scheduler.RATING_BY_NAME.get(action)
+    if rating is None:
+        return _back_to_study(request)
+
+    was_new = user_word.status == scheduler.NEW
+    duration_ms = _positive_int(request.POST.get('duration_ms'))
+
+    user_word.grade(rating, duration_ms=duration_ms)
+
+    profile.words_studied_today += 1
+    if was_new:
+        profile.new_cards_today += 1
+    profile.save(update_fields=['words_studied_today', 'new_cards_today'])
+    profile.update_streak()
+
+    study_queue.advance(request, user_word)
+    return _back_to_study(request)
+
+
+def _back_to_study(request):
+    """Redirect to the next card on the page the answer came from.
+
+    The old flow bounced off HTTP_REFERER, which browsers are free to strip and
+    which cannot be trusted as a redirect target.
+    """
+    target = request.POST.get('return_to')
+    if target and url_has_allowed_host_and_scheme(target, allowed_hosts=None):
+        return redirect(target)
+
+    state = request.session.get(study_queue.SESSION_KEY) or {}
+    level = state.get('level')
+    if level:
+        return redirect('study_session_level', level=level)
+    return redirect('study_levels')
+
+
+def _positive_int(value):
     try:
-        user_word = UserWord.objects.get(user=user, id=word_id)
-        
-        # Track if this is first time learning
-        if user_word.first_learned is None and action == 'remembered':
-            user_word.first_learned = timezone.now()
-        
-        if action == 'remembered':
-            user_word.mark_remembered()
-            profile.words_studied_today += 1
-            profile.update_streak()
-        elif action == 'forgotten':
-            user_word.mark_forgotten()
-            profile.words_studied_today += 1
-            profile.update_streak()
-        elif action == 'hard':
-            user_word.mark_hard()
-            profile.words_studied_today += 1
-            profile.update_streak()
-            
-        profile.save()
-        
-    except UserWord.DoesNotExist:
-        pass
-        
-    referer = request.META.get('HTTP_REFERER')
-    if referer:
-        return redirect(referer)
-    return redirect('study_session')
+        number = int(value)
+    except (TypeError, ValueError):
+        return None
+    return number if number > 0 else None
 
 def word_list(request):
     user = get_user(request)
@@ -257,19 +264,33 @@ def grammar_detail(request, pk):
     grammar = get_object_or_404(GrammarPoint, pk=pk)
     return render(request, 'flashcards/grammar_detail.html', {'grammar': grammar})
 
-def study_hard_words(request):
+def _difficulty_session(request, filters, mode):
+    """Show the most overdue card matching a difficulty filter."""
     user = get_user(request)
-    hard_word = UserWord.objects.filter(user=user, difficulty='hard').order_by('next_review_date').first()
-    return render(request, 'flashcards/study.html', {'card': hard_word, 'level': None, 'difficulty_mode': 'hard'})
+    profile = get_or_create_profile(user)
+    card = (
+        UserWord.objects.filter(user=user)
+        .filter(filters)
+        .select_related('word')
+        .order_by('next_review_date')
+        .first()
+    )
+    return render(request, 'flashcards/study.html', {
+        'card': card,
+        'level': None,
+        'profile': profile,
+        'difficulty_mode': mode,
+    })
+
+def study_hard_words(request):
+    return _difficulty_session(request, HARD_WORDS, 'hard')
 
 def study_easy_words(request):
-    user = get_user(request)
-    easy_word = UserWord.objects.filter(user=user, difficulty='easy').order_by('next_review_date').first()
-    return render(request, 'flashcards/study.html', {'card': easy_word, 'level': None, 'difficulty_mode': 'easy'})
+    return _difficulty_session(request, Q(difficulty='easy'), 'easy')
 
 def hard_words(request):
     user = get_user(request)
-    hard_words_list = UserWord.objects.filter(user=user, difficulty='hard').select_related('word')
+    hard_words_list = UserWord.objects.filter(user=user).filter(HARD_WORDS).select_related('word')
     return render(request, 'flashcards/hard_words.html', {'user_words': hard_words_list, 'difficulty_label': 'Hard'})
 
 def easy_words(request):
@@ -281,45 +302,63 @@ def stats_view(request):
     """Detailed statistics view"""
     user = get_user(request)
     profile = get_or_create_profile(user)
-    
+
     user_words = UserWord.objects.filter(user=user)
-    
-    # Get words grouped by status
-    new_count = user_words.filter(status='NEW').count()
-    learning_count = user_words.filter(status='LEARNING').count()
-    review_count = user_words.filter(status='REVIEW').count()
-    mastered_count = user_words.filter(status='MASTERED').count()
-    
-    # Get difficulty distribution
-    hard_count = user_words.filter(difficulty='hard').count()
-    normal_count = user_words.filter(difficulty='normal').count()
-    easy_count = user_words.filter(difficulty='easy').count()
-    
-    # Get retention rate distribution
-    high_retention = user_words.filter(times_reviewed__gt=0).filter(
-        times_correct__gte=models.F('times_reviewed') * 0.8
+    today = scheduler.study_day()
+
+    counts = user_words.aggregate(
+        new_count=Count('id', filter=Q(status=scheduler.NEW)),
+        learning_count=Count('id', filter=Q(status__in=IN_PROGRESS)),
+        review_count=Count('id', filter=Q(status=scheduler.REVIEW)),
+        mastered_count=Count('id', filter=Q(status=scheduler.MASTERED)),
+        hard_count=Count('id', filter=HARD_WORDS),
+        easy_count=Count('id', filter=Q(difficulty='easy')),
+        normal_count=Count('id', filter=Q(difficulty='normal') & Q(flagged=False)),
+        # Words recalled at least 80% of the time. This used to reference an
+        # unimported `models.F`, so the page raised NameError on every visit.
+        high_retention=Count(
+            'id', filter=Q(times_reviewed__gt=0) & Q(times_correct__gte=F('times_reviewed') * 0.8)
+        ),
+        answers=Sum('times_reviewed'),
+        correct=Sum('times_correct'),
+        lapses=Sum('lapses'),
+    )
+
+    answers = counts['answers'] or 0
+    retention = round((counts['correct'] or 0) / answers * 100, 1) if answers else 0
+
+    # Reviews are logged individually now, so "today" means answers given
+    # today rather than cards whose last answer happened to be today.
+    reviews_today = Review.objects.filter(
+        user_word__user=user, reviewed_at__gte=scheduler.day_starts_at(today)
     ).count()
-    
-    # Get today's activity
-    today = date.today()
-    today_reviews = user_words.filter(
-        last_reviewed__date=today,
-        last_reviewed__isnull=False
-    ).count()
-    
+
+    # A fortnight of upcoming load, so a backlog is visible before it lands.
+    upcoming = (
+        user_words.filter(
+            next_review_date__gte=scheduler.day_starts_at(today),
+            next_review_date__lt=scheduler.day_starts_at(today + timedelta(days=14)),
+        )
+        .exclude(status=scheduler.NEW)
+        .values_list('next_review_date', flat=True)
+    )
+    per_day = Counter(scheduler.study_day(moment) for moment in upcoming)
+    forecast = [
+        {'day': today + timedelta(days=offset), 'count': per_day.get(today + timedelta(days=offset), 0)}
+        for offset in range(14)
+    ]
+
     context = {
         'profile': profile,
-        'stats': {
-            'new_count': new_count,
-            'learning_count': learning_count,
-            'review_count': review_count,
-            'mastered_count': mastered_count,
-            'hard_count': hard_count,
-            'normal_count': normal_count,
-            'easy_count': easy_count,
-            'high_retention': high_retention,
-            'today_reviews': today_reviews,
-        }
+        'forecast': forecast,
+        # Bars are drawn as a share of the busiest day; never divide by zero.
+        'forecast_peak': max([day['count'] for day in forecast] + [1]),
+        'stats': dict(
+            counts,
+            today_reviews=reviews_today,
+            total_answers=answers,
+            retention=retention,
+        ),
     }
     return render(request, 'flashcards/stats.html', context)
 
@@ -421,11 +460,54 @@ def story_store(request, level=None):
     )
 
 
+def _story_paragraphs(story):
+    """Line a story's Chinese, pinyin and English up paragraph by paragraph.
+
+    Some stories store their pinyin as one unbroken blob, which cannot be put
+    beside anything. Those are romanised from the Chinese instead, which is
+    reliable precisely because it is derived from the column it sits next to.
+    """
+    chinese = [line.strip() for line in story.chinese_text.splitlines() if line.strip()]
+    english = [line.strip() for line in (story.english_translation or "").splitlines() if line.strip()]
+    pinyin = [line.strip() for line in (story.pinyin_text or "").splitlines() if line.strip()]
+
+    if len(pinyin) != len(chinese):
+        pinyin = _derive_pinyin(story, chinese)
+
+    # Translations occasionally merge or split a paragraph; pad rather than
+    # crash, so a story with an uneven English column still reads.
+    return [
+        {
+            "chinese": paragraph,
+            "pinyin": pinyin[index] if index < len(pinyin) else "",
+            "english": english[index] if index < len(english) else "",
+        }
+        for index, paragraph in enumerate(chinese)
+    ]
+
+
+def _derive_pinyin(story, chinese):
+    """Romanise each Chinese paragraph so the columns stay in step."""
+    extra = {
+        (item.get("chinese") or "").strip(): (item.get("pinyin") or "").strip()
+        for item in story.vocabulary or []
+    }
+    try:
+        lookup = pinyin_text.build_lookup(extra)
+        romanised = pinyin_text.to_pinyin("\n".join(chinese), lookup)
+    except pinyin_text.PinyinUnavailable:
+        # Showing the other two columns beats failing the whole page.
+        return []
+    # Split without dropping blanks: positions have to match the input.
+    return [line.strip() for line in romanised.split("\n")]
+
+
 @ensure_csrf_cookie
 def story_detail(request, pk):
-    """Read a single story with optional pinyin visibility."""
+    """Read a single story, side by side or stacked."""
     story = get_object_or_404(Story, pk=pk)
     show_pinyin = request.GET.get("show_pinyin", "1") == "1"
+    layout = "stacked" if request.GET.get("layout") == "stacked" else "columns"
 
     # Build word lookup from global HSK words + story-specific vocabulary.
     word_lookup = {}
@@ -474,9 +556,9 @@ def story_detail(request, pk):
                 pieces.append(token)
         return pieces
 
-    chinese_lines = [
-        tokenize_line(line) for line in story.chinese_text.splitlines() if line.strip()
-    ]
+    rows = _story_paragraphs(story)
+    for row in rows:
+        row["tokens"] = tokenize_line(row["chinese"])
 
     return render(
         request,
@@ -484,7 +566,8 @@ def story_detail(request, pk):
         {
             "story": story,
             "show_pinyin": show_pinyin,
-            "chinese_lines": chinese_lines,
+            "layout": layout,
+            "rows": rows,
             "vocab_lookup_json": json.dumps(word_lookup, ensure_ascii=False),
         },
     )
@@ -635,6 +718,128 @@ def export_saved_words_pdf(request):
     return response
 
 
+def export_hard_words_pdf(request):
+    user = get_user(request)
+    hard_words = (
+        UserWord.objects.filter(user=user)
+        .filter(HARD_WORDS)
+        .select_related("word")
+        .order_by("word__hsk_level", "word__chinese")
+    )
+
+    doc = fitz.open()
+
+    candidate_fonts = [
+        "C:/Windows/Fonts/msyh.ttc",
+        "C:/Windows/Fonts/msyhbd.ttc",
+        "C:/Windows/Fonts/simhei.ttf",
+        "C:/Windows/Fonts/simsun.ttc",
+        "C:/Windows/Fonts/arialuni.ttf",
+    ]
+    font_path = next((p for p in candidate_fonts if os.path.exists(p)), None)
+
+    page = doc.new_page()
+    page_width = page.rect.width
+    margin = 40
+    table_left = margin
+    table_top = 92
+    table_width = page_width - (margin * 2)
+    row_height = 28
+    y = 50
+
+    title = f"Hard Words - {user.username}"
+    if font_path:
+        page.insert_text((margin, y), title, fontsize=18, fontname="F0", fontfile=font_path)
+    else:
+        page.insert_text((margin, y), title, fontsize=18)
+
+    y += 20
+    subtitle = f"Total hard words: {hard_words.count()}"
+    if font_path:
+        page.insert_text((margin, y), subtitle, fontsize=10, color=(0.35, 0.35, 0.35), fontname="F0", fontfile=font_path)
+    else:
+        page.insert_text((margin, y), subtitle, fontsize=10, color=(0.35, 0.35, 0.35))
+
+    # Table columns: Level | Chinese | Pinyin | English | Status
+    col_fracs = [0.12, 0.16, 0.18, 0.42, 0.12]
+    col_x = [table_left]
+    for frac in col_fracs:
+        col_x.append(col_x[-1] + table_width * frac)
+
+    headers = ["Level", "Chinese", "Pinyin", "English", "Status"]
+
+    def draw_header(current_page, top_y):
+        current_page.draw_rect(
+            fitz.Rect(table_left, top_y, table_left + table_width, top_y + row_height),
+            color=(0.45, 0.45, 0.45),
+            fill=(0.93, 0.93, 0.96),
+            width=1,
+        )
+        for i, header in enumerate(headers):
+            cell = fitz.Rect(col_x[i] + 4, top_y + 6, col_x[i + 1] - 4, top_y + row_height - 4)
+            if font_path:
+                current_page.insert_textbox(cell, header, fontsize=10, color=(0.15, 0.15, 0.2), fontname="F0", fontfile=font_path, align=fitz.TEXT_ALIGN_LEFT)
+            else:
+                current_page.insert_textbox(cell, header, fontsize=10, color=(0.15, 0.15, 0.2), align=fitz.TEXT_ALIGN_LEFT)
+
+        for x in col_x[1:-1]:
+            current_page.draw_line((x, top_y), (x, top_y + row_height), color=(0.45, 0.45, 0.45), width=1)
+
+    def draw_row(current_page, top_y, values):
+        eng_text = values[3] or "-"
+        approx_lines = max(1, len(eng_text) // 56 + 1)
+        dynamic_height = max(row_height, 18 + approx_lines * 12)
+
+        current_page.draw_rect(
+            fitz.Rect(table_left, top_y, table_left + table_width, top_y + dynamic_height),
+            color=(0.78, 0.78, 0.82),
+            width=0.8,
+        )
+
+        for i, value in enumerate(values):
+            text = value if value else "-"
+            cell = fitz.Rect(col_x[i] + 4, top_y + 5, col_x[i + 1] - 4, top_y + dynamic_height - 4)
+            if font_path:
+                current_page.insert_textbox(cell, text, fontsize=9.5, color=(0.1, 0.1, 0.1), fontname="F0", fontfile=font_path, align=fitz.TEXT_ALIGN_LEFT)
+            else:
+                current_page.insert_textbox(cell, text, fontsize=9.5, color=(0.1, 0.1, 0.1), align=fitz.TEXT_ALIGN_LEFT)
+
+        for x in col_x[1:-1]:
+            current_page.draw_line((x, top_y), (x, top_y + dynamic_height), color=(0.78, 0.78, 0.82), width=0.8)
+
+        return dynamic_height
+
+    current_y = table_top
+    draw_header(page, current_y)
+    current_y += row_height
+
+    for item in hard_words:
+        values = [
+            f"HSK {item.word.hsk_level}",
+            item.word.chinese,
+            item.word.pinyin,
+            item.word.english,
+            item.status,
+        ]
+
+        projected_height = max(row_height, 18 + (max(1, len((item.word.english or "")) // 56 + 1) * 12))
+        if current_y + projected_height > page.rect.height - margin:
+            page = doc.new_page()
+            current_y = margin
+            draw_header(page, current_y)
+            current_y += row_height
+
+        used_h = draw_row(page, current_y, values)
+        current_y += used_h
+
+    pdf_bytes = doc.tobytes()
+    doc.close()
+
+    response = HttpResponse(pdf_bytes, content_type="application/pdf")
+    response["Content-Disposition"] = 'attachment; filename="hard_words.pdf"'
+    return response
+
+
 def dialogue_list(request, category=None):
     dialogues = Dialogue.objects.all().order_by("category", "level", "title")
     if category:
@@ -700,19 +905,13 @@ def api_words(request):
 
 
 def api_study_next(request, level: int):
-    """GET /api/study/<level>/next/ -> next due card for that level."""
+    """GET /api/study/<level>/next/ -> next card for that level."""
     user = get_user(request)
     profile = get_or_create_profile(user)
+    profile.reset_daily_goal()
 
-    base_query = UserWord.objects.filter(user=user, word__hsk_level=level)
-    due_word = base_query.filter(
-        next_review_date__lte=timezone.now(),
-        status__in=["LEARNING", "REVIEW"],
-    ).exclude(status="MASTERED").order_by("next_review_date", "-times_incorrect").first()
-
-    if not due_word:
-        due_word = base_query.filter(status="NEW").first()
-
+    # Same queue the HTML session serves, so the two stay in step.
+    due_word = study_queue.next_card(request, user, profile, level)
     if not due_word:
         return JsonResponse({"card": None})
 
@@ -727,7 +926,15 @@ def api_study_next(request, level: int):
                 "id": due_word.id,
                 "status": due_word.status,
                 "difficulty": due_word.difficulty,
+                "flagged": due_word.flagged,
+                "interval": due_word.interval,
+                "ease_factor": round(due_word.ease_factor, 2),
+                "lapses": due_word.lapses,
                 "next_review_date": due_word.next_review_date.isoformat() if due_word.next_review_date else None,
+                "previews": {
+                    scheduler.RATING_NAMES[rating]: label
+                    for rating, label in due_word.preview_intervals().items()
+                },
                 "word": {
                     "id": w.id,
                     "hsk_level": w.hsk_level,
@@ -741,6 +948,7 @@ def api_study_next(request, level: int):
                 "daily_goal": profile.daily_goal,
                 "words_studied_today": profile.words_studied_today,
                 "goal_progress": profile.get_goal_progress(),
+                "new_cards_remaining": profile.new_cards_remaining(),
             },
         }
     )

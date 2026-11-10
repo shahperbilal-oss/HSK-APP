@@ -3,17 +3,19 @@ from django.core.management.base import BaseCommand
 from flashcards.models import GrammarPoint
 
 
-GENERIC_EXAMPLES = [
-    {"cn": "这个语法点很常用。", "pinyin": "Zhège yǔfǎ diǎn hěn chángyòng.", "en": "This grammar point is very commonly used."},
-    {"cn": "请用这个结构造句。", "pinyin": "Qǐng yòng zhège jiégòu zàojù.", "en": "Please make a sentence using this structure."},
-    {"cn": "老师在课上解释了这个语法。", "pinyin": "Lǎoshī zài kè shàng jiěshì le zhège yǔfǎ.", "en": "The teacher explained this grammar in class."},
-    {"cn": "我需要多练习这个句型。", "pinyin": "Wǒ xūyào duō liànxí zhège jùxíng.", "en": "I need to practice this sentence pattern more."},
-    {"cn": "掌握这个语法以后，表达会更自然。", "pinyin": "Zhǎngwò zhège yǔfǎ yǐhòu, biǎodá huì gèng zìrán.", "en": "After mastering this grammar, expression becomes more natural."},
-]
-
-
 class Command(BaseCommand):
-    help = "Backfill HSK 1-4 grammar points with detailed explanations and 5 examples each."
+    """Repair grammar points that predate flashcards/grammar_data.py.
+
+    An earlier version padded every point up to five examples with generic
+    filler sentences such as "This grammar point is very commonly used", which
+    taught the learner nothing. Padding has been removed: a point now keeps
+    only its real examples, and `import_grammar` is the place to add more.
+    """
+
+    help = (
+        "Repair legacy grammar points: normalise their examples and fill in a "
+        "missing detailed explanation. Does not invent example sentences."
+    )
 
     def handle(self, *args, **options):
         updated = 0
@@ -51,9 +53,6 @@ class Command(BaseCommand):
                 }
                 if legacy not in normalized:
                     normalized.insert(0, legacy)
-
-            while len(normalized) < 5:
-                normalized.append(GENERIC_EXAMPLES[len(normalized)])
 
             normalized = normalized[:5]
             if gp.examples != normalized:

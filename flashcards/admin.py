@@ -1,5 +1,5 @@
 from django.contrib import admin
-from .models import Word, UserWord, UserProfile, GrammarPoint, Book, Chapter, TextSegment, Story, SavedWord, Dialogue
+from .models import Word, UserWord, UserProfile, Review, GrammarPoint, Book, Chapter, TextSegment, Story, SavedWord, Dialogue
 
 @admin.register(Word)
 class WordAdmin(admin.ModelAdmin):
@@ -24,14 +24,31 @@ class WordAdmin(admin.ModelAdmin):
 
 @admin.register(UserWord)
 class UserWordAdmin(admin.ModelAdmin):
-    list_display = ('user', 'word', 'status', 'difficulty', 'consecutive_correct', 'next_review_date')
-    list_filter = ('status', 'difficulty')
+    list_display = (
+        'user', 'word', 'status', 'difficulty', 'flagged',
+        'interval', 'ease_factor', 'lapses', 'consecutive_correct', 'next_review_date',
+    )
+    list_filter = ('status', 'difficulty', 'flagged')
     search_fields = ('user__username', 'word__chinese', 'word__pinyin')
     raw_id_fields = ('user', 'word')
 
+@admin.register(Review)
+class ReviewAdmin(admin.ModelAdmin):
+    list_display = (
+        'reviewed_at', 'user_word', 'rating',
+        'state_before', 'interval_before', 'state_after', 'interval_after', 'elapsed_days',
+    )
+    list_filter = ('rating', 'state_before', 'state_after')
+    search_fields = ('user_word__word__chinese', 'user_word__user__username')
+    raw_id_fields = ('user_word',)
+    date_hierarchy = 'reviewed_at'
+
 @admin.register(UserProfile)
 class UserProfileAdmin(admin.ModelAdmin):
-    list_display = ('user', 'current_streak', 'longest_streak', 'daily_goal', 'words_studied_today', 'total_words_learned')
+    list_display = (
+        'user', 'current_streak', 'longest_streak', 'daily_goal', 'words_studied_today',
+        'new_cards_per_day', 'new_cards_today', 'total_words_learned',
+    )
     list_filter = ('current_streak',)
     search_fields = ('user__username',)
 

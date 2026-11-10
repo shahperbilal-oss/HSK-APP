@@ -2,7 +2,8 @@ from django.db import models
 from django.contrib.auth.models import User
 from django.utils import timezone
 from datetime import timedelta
-import math
+
+from . import scheduler
 
 # Grammar point model for HSK grammar section
 class GrammarPoint(models.Model):
@@ -58,47 +59,60 @@ class Word(models.Model):
 
 class UserWord(models.Model):
     STATUS_CHOICES = [
-        ("NEW", "New"),
-        ("LEARNING", "Learning"),
-        ("REVIEW", "Review"),
-        ("MASTERED", "Mastered")
+        (scheduler.NEW, "New"),
+        (scheduler.LEARNING, "Learning"),
+        (scheduler.RELEARNING, "Relearning"),
+        (scheduler.REVIEW, "Review"),
+        (scheduler.MASTERED, "Mastered"),
     ]
-    
-    user = models.ForeignKey(User, on_delete=models.CASCADE)
-    word = models.ForeignKey(Word, on_delete=models.CASCADE)
-    status = models.CharField(max_length=20, choices=STATUS_CHOICES, default="NEW")
     DIFFICULTY_CHOICES = [
         ("normal", "Normal"),
         ("hard", "Hard"),
         ("easy", "Easy"),
     ]
-    
+
+    # A word is labelled hard once it has lapsed this often, or once it is
+    # being recalled less often than this share of the time.
+    HARD_LAPSES = 3
+    HARD_RETENTION = 60
+    EASY_RETENTION = 90
+
+    user = models.ForeignKey(User, on_delete=models.CASCADE)
+    word = models.ForeignKey(Word, on_delete=models.CASCADE)
+    status = models.CharField(max_length=20, choices=STATUS_CHOICES, default=scheduler.NEW)
+
+    # Derived from the card's whole history by refresh_difficulty(); never set
+    # directly by a single answer.
     difficulty = models.CharField(max_length=10, choices=DIFFICULTY_CHOICES, default="normal")
-    # Enhanced SRS tracking
-    consecutive_correct = models.IntegerField(default=0)
+    # The learner's own pin, kept separate from the derived label above so that
+    # grading a word can never silently un-pin it.
+    flagged = models.BooleanField(default=False, help_text="Pinned to the hard list by the learner")
+
+    # Scheduling state (see flashcards/scheduler.py)
     next_review_date = models.DateTimeField(default=timezone.now)
-    
-    # Advanced SRS parameters
-    ease_factor = models.FloatField(default=2.5)  # SM-2 ease factor
-    interval = models.IntegerField(default=0)  # Current interval in days
-    reps = models.IntegerField(default=0)  # Number of successful repetitions
-    
-    # Statistics tracking
+    ease_factor = models.FloatField(default=scheduler.INITIAL_EASE)
+    interval = models.IntegerField(default=0, help_text="Current interval in days")
+    reps = models.IntegerField(default=0, help_text="Successful repetitions")
+    lapses = models.IntegerField(default=0, help_text="Times this card has been forgotten after graduating")
+    learning_step = models.IntegerField(default=0, help_text="Index into the (re)learning steps")
+
+    # Statistics
+    consecutive_correct = models.IntegerField(default=0)
     times_reviewed = models.IntegerField(default=0)
     times_correct = models.IntegerField(default=0)
     times_incorrect = models.IntegerField(default=0)
     last_reviewed = models.DateTimeField(null=True, blank=True)
     first_learned = models.DateTimeField(null=True, blank=True)
-    
-    # Session tracking
-    studied_in_session = models.BooleanField(default=False)
-    session_correct = models.BooleanField(null=True, blank=True)
 
     class Meta:
         unique_together = ("user", "word")
+        indexes = [
+            models.Index(fields=["user", "next_review_date"]),
+            models.Index(fields=["user", "status"]),
+        ]
 
     def calculate_retention_rate(self):
-        """Calculate the retention rate as a percentage"""
+        """Return the share of reviews recalled, as a percentage."""
         if self.times_reviewed == 0:
             return 0
         return round((self.times_correct / self.times_reviewed) * 100, 1)
@@ -115,85 +129,169 @@ class UserWord(models.Model):
         else:
             return "📚"
 
-    def mark_remembered(self):
-        """Mark word as remembered using improved SM-2 algorithm"""
-        from django.utils import timezone
-        from datetime import timedelta
-        
+    # --- Scheduling ---------------------------------------------------------
+
+    def as_scheduler_card(self):
+        """Return this row's scheduling state as a plain scheduler.Card."""
+        return scheduler.Card(
+            status=self.status,
+            step=self.learning_step,
+            ease=self.ease_factor,
+            interval=self.interval,
+            reps=self.reps,
+            lapses=self.lapses,
+            due=self.next_review_date,
+        )
+
+    def apply_scheduler_card(self, card):
+        """Copy scheduling state back off a scheduler.Card."""
+        self.status = card.status
+        self.learning_step = card.step
+        self.ease_factor = card.ease
+        self.interval = card.interval
+        self.reps = card.reps
+        self.lapses = card.lapses
+        self.next_review_date = card.due
+
+    def refresh_difficulty(self):
+        """Recompute the difficulty label from the card's whole history.
+
+        Deriving it matters: setting the label from the last answer alone let a
+        single lucky recall relabel a word that had been failed ten times.
+        """
+        retention = self.calculate_retention_rate()
+        if self.lapses >= self.HARD_LAPSES or (
+            self.times_reviewed >= 3 and retention < self.HARD_RETENTION
+        ):
+            self.difficulty = "hard"
+        elif self.reps >= 3 and self.lapses == 0 and retention >= self.EASY_RETENTION:
+            self.difficulty = "easy"
+        else:
+            self.difficulty = "normal"
+
+    def grade(self, rating, now=None, duration_ms=None):
+        """Record an answer, reschedule the card, and log the review.
+
+        Returns the resulting scheduler.Card.
+        """
+        now = now or timezone.now()
+        before = self.as_scheduler_card()
+        after = scheduler.review(before, rating, now=now)
+
         self.times_reviewed += 1
-        self.times_correct += 1
-        self.last_reviewed = timezone.now()
-        self.studied_in_session = True
-        self.session_correct = True
-        
-        # Update reps and interval using SM-2 algorithm
-        self.reps += 1
-        
-        if self.reps == 1:
-            self.interval = 1
-        elif self.reps == 2:
-            self.interval = 6
+        if rating == scheduler.AGAIN:
+            self.times_incorrect += 1
+            self.consecutive_correct = 0
         else:
-            self.interval = round(self.interval * self.ease_factor)
-        
-        # Ensure minimum interval of 1 day
-        self.interval = max(1, self.interval)
-        
-        self.next_review_date = timezone.now() + timedelta(days=self.interval)
-        
-        # Update status based on progress
-        if self.reps >= 5 and self.interval >= 21:
-            self.status = "MASTERED"
-        else:
-            self.status = "REVIEW"
-        
-        self.difficulty = "easy"
+            # Hard is a passing grade: the word was recalled, just not easily.
+            self.times_correct += 1
+            self.consecutive_correct += 1
+        self.last_reviewed = now
+        if self.first_learned is None:
+            self.first_learned = now
+
+        elapsed_days = (
+            (scheduler.study_day(now) - scheduler.study_day(before.due)).days if before.due else 0
+        )
+
+        self.apply_scheduler_card(after)
+        self.refresh_difficulty()
         self.save()
 
-    def mark_forgotten(self):
-        """Mark word as forgotten - reset progress"""
-        from django.utils import timezone
-        
-        self.times_reviewed += 1
-        self.times_incorrect += 1
-        self.last_reviewed = timezone.now()
-        self.studied_in_session = True
-        self.session_correct = False
-        
-        # Reset SM-2 parameters
-        self.reps = 0
-        self.interval = 0
-        self.consecutive_correct = 0
-        self.ease_factor = max(1.3, self.ease_factor - 0.2)  # Decrease ease factor
-        
-        self.next_review_date = timezone.now()  # Review immediately
-        self.status = "LEARNING"
-        self.difficulty = "hard"
-        self.save()
+        Review.objects.create(
+            user_word=self,
+            reviewed_at=now,
+            rating=rating,
+            state_before=before.status,
+            interval_before=before.interval,
+            ease_before=before.ease,
+            elapsed_days=elapsed_days,
+            state_after=after.status,
+            interval_after=after.interval,
+            ease_after=after.ease,
+            duration_ms=duration_ms,
+        )
+        return after
 
-    def mark_hard(self):
-        """Mark word as hard - review soon with adjusted ease"""
-        from django.utils import timezone
-        from datetime import timedelta
-        
-        self.times_reviewed += 1
-        self.times_incorrect += 1
-        self.last_reviewed = timezone.now()
-        self.studied_in_session = True
-        self.session_correct = False
-        
-        # Adjust ease factor down but don't reset completely
-        self.ease_factor = max(1.3, self.ease_factor - 0.15)
-        
-        # Set interval to 1 day for quick review
-        self.interval = 1
-        self.next_review_date = timezone.now() + timedelta(days=1)
-        self.status = "REVIEW"
-        self.difficulty = "hard"
-        self.save()
+    def preview_intervals(self):
+        """Return {rating: label} describing what each button would schedule."""
+        return scheduler.next_intervals(self.as_scheduler_card())
+
+    #: Grade buttons, in the order they are shown, with the CSS accent to use.
+    GRADE_BUTTONS = (
+        (scheduler.AGAIN, "Again", "#ef4444"),
+        (scheduler.HARD, "Hard", "#f59e0b"),
+        (scheduler.GOOD, "Good", "#10b981"),
+        (scheduler.EASY, "Easy", "#38bdf8"),
+    )
+
+    def grade_options(self):
+        """Return the study screen's grade buttons with their scheduled delays.
+
+        Showing what each button costs is the point of a four-grade scale: it
+        is what lets someone pick Hard over Again without guessing.
+        """
+        previews = self.preview_intervals()
+        return [
+            {
+                "action": scheduler.RATING_NAMES[rating],
+                "label": label,
+                "colour": colour,
+                "preview": previews[rating],
+            }
+            for rating, label, colour in self.GRADE_BUTTONS
+        ]
+
+    def is_due(self, now=None):
+        return self.next_review_date <= (now or timezone.now())
 
     def __str__(self):
         return f"{self.user.username} - {self.word.chinese} - {self.status}"
+
+
+class Review(models.Model):
+    """One graded answer.
+
+    Aggregate counters on UserWord cannot say when a card was answered or what
+    state it was in at the time, so they cannot support undo, a real retention
+    curve, or the parameter fitting that FSRS needs. This table can.
+    """
+
+    RATING_CHOICES = [
+        (scheduler.AGAIN, "Again"),
+        (scheduler.HARD, "Hard"),
+        (scheduler.GOOD, "Good"),
+        (scheduler.EASY, "Easy"),
+    ]
+
+    user_word = models.ForeignKey(UserWord, on_delete=models.CASCADE, related_name="reviews")
+    reviewed_at = models.DateTimeField(default=timezone.now)
+    rating = models.IntegerField(choices=RATING_CHOICES)
+
+    # State going in, which is what any later analysis has to condition on.
+    state_before = models.CharField(max_length=20)
+    interval_before = models.IntegerField()
+    ease_before = models.FloatField()
+    elapsed_days = models.IntegerField(
+        help_text="Days between the scheduled due date and the answer; negative if answered early"
+    )
+
+    # State coming out.
+    state_after = models.CharField(max_length=20)
+    interval_after = models.IntegerField()
+    ease_after = models.FloatField()
+
+    duration_ms = models.IntegerField(null=True, blank=True, help_text="Time spent on the card")
+
+    class Meta:
+        ordering = ["-reviewed_at"]
+        indexes = [
+            models.Index(fields=["user_word", "-reviewed_at"]),
+            models.Index(fields=["reviewed_at"]),
+        ]
+
+    def __str__(self):
+        return f"{self.user_word.word.chinese} {self.get_rating_display()} @ {self.reviewed_at:%Y-%m-%d}"
 
 
 class UserProfile(models.Model):
@@ -209,6 +307,11 @@ class UserProfile(models.Model):
     daily_goal = models.IntegerField(default=20)  # Words per day
     words_studied_today = models.IntegerField(default=0)
     last_reset_date = models.DateField(null=True, blank=True)
+
+    # Pacing. Without a cap on unseen words a learner can burn through hundreds
+    # in one sitting and then face an unmanageable backlog a week later.
+    new_cards_per_day = models.IntegerField(default=10)
+    new_cards_today = models.IntegerField(default=0)
     
     # Overall statistics
     total_words_learned = models.IntegerField(default=0)
@@ -223,39 +326,38 @@ class UserProfile(models.Model):
         return f"{self.user.username}'s Profile"
     
     def update_streak(self):
-        """Update streak based on last study date"""
-        from datetime import date, timedelta
-        
-        today = date.today()
-        
-        if self.last_study_date is None:
-            self.current_streak = 1
-        elif self.last_study_date == today:
-            pass  # Already studied today
-        elif self.last_study_date == today - timedelta(days=1):
+        """Extend the streak if this is the first study of a new day."""
+        today = scheduler.study_day()
+
+        if self.last_study_date == today:
+            return  # Already counted today.
+        if self.last_study_date == today - timedelta(days=1):
             self.current_streak += 1
         else:
-            self.current_streak = 1  # Reset streak
-        
+            self.current_streak = 1
+
         self.longest_streak = max(self.longest_streak, self.current_streak)
         self.last_study_date = today
-        self.save()
-    
+        self.save(update_fields=["current_streak", "longest_streak", "last_study_date"])
+
     def reset_daily_goal(self):
-        """Reset daily goal counter if it's a new day"""
-        from datetime import date
-        
-        today = date.today()
+        """Clear the per-day counters when the study day rolls over."""
+        today = scheduler.study_day()
         if self.last_reset_date != today:
             self.words_studied_today = 0
+            self.new_cards_today = 0
             self.last_reset_date = today
-            self.save()
-    
+            self.save(update_fields=["words_studied_today", "new_cards_today", "last_reset_date"])
+
     def get_goal_progress(self):
         """Get daily goal progress as percentage"""
         if self.daily_goal == 0:
             return 0
         return min(100, round((self.words_studied_today / self.daily_goal) * 100))
+
+    def new_cards_remaining(self):
+        """How many unseen words may still be introduced today."""
+        return max(0, self.new_cards_per_day - self.new_cards_today)
     
     @classmethod
     def get_or_create_profile(cls, user):

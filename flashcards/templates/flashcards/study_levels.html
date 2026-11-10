@@ -28,6 +28,12 @@
                 <span><strong style="color:#f59e0b;">{{ ls.learning }}</strong> learning</span>
                 <span><strong style="color:#a78bfa;">{{ ls.new }}</strong> new</span>
             </div>
+
+            {% if ls.due %}
+            <div class="subtle" style="margin-top:0.5rem;">
+                <span class="badge badge-pink">{{ ls.due }} due now</span>
+            </div>
+            {% endif %}
         </a>
         {% endfor %}
     </div>

@@ -1,0 +1,106 @@
+{% extends 'flashcards/base.html' %}
+{% block content %}
+<div>
+    <div style="text-align: center; margin-bottom: 2rem;">
+        <h2 style="margin-bottom:0.5rem;">📊 Your Statistics</h2>
+        <p>How your vocabulary is spread across the schedule, and what is coming.</p>
+    </div>
+
+    <div class="glass-panel" style="display: flex; justify-content: space-around; flex-wrap: wrap; gap: 1rem;">
+        <div style="text-align: center; min-width: 180px;">
+            <div style="font-size: 3rem; margin-bottom: 0.5rem;">🔥</div>
+            <h3 style="color: #f59e0b; font-size: 2rem; margin-bottom: 0.25rem;">{{ profile.current_streak }}</h3>
+            <p style="margin: 0;">Day Streak</p>
+            <small style="opacity: 0.6;">Longest: {{ profile.longest_streak }} days</small>
+        </div>
+        <div style="text-align: center; min-width: 180px;">
+            <div style="font-size: 3rem; margin-bottom: 0.5rem;">🎯</div>
+            <h3 style="color: #10b981; font-size: 2rem; margin-bottom: 0.25rem;">{{ stats.retention }}%</h3>
+            <p style="margin: 0;">Retention</p>
+            <small style="opacity: 0.6;">Across {{ stats.total_answers }} answers</small>
+        </div>
+        <div style="text-align: center; min-width: 180px;">
+            <div style="font-size: 3rem; margin-bottom: 0.5rem;">📅</div>
+            <h3 style="color: #a78bfa; font-size: 2rem; margin-bottom: 0.25rem;">{{ stats.today_reviews }}</h3>
+            <p style="margin: 0;">Answered Today</p>
+            <small style="opacity: 0.6;">Goal: {{ profile.daily_goal }}</small>
+        </div>
+    </div>
+
+    <div class="glass-panel" style="text-align: center;">
+        <h3 style="color: #f472b6; margin-bottom: 1rem;">Where Your Words Are</h3>
+        <div class="dashboard-grid">
+            <div class="stat-card">
+                <h3 style="color: #a78bfa;">{{ stats.new_count }}</h3>
+                <p>Not Started</p>
+            </div>
+            <div class="stat-card">
+                <h3 style="color: #f59e0b;">{{ stats.learning_count }}</h3>
+                <p>Learning</p>
+            </div>
+            <div class="stat-card">
+                <h3 style="color: #38bdf8;">{{ stats.review_count }}</h3>
+                <p>In Review</p>
+            </div>
+            <div class="stat-card">
+                <h3 style="color: #10b981;">{{ stats.mastered_count }}</h3>
+                <p>Mastered</p>
+            </div>
+        </div>
+        <p class="subtle" style="margin-top:1rem; font-size:0.85rem;">
+            Mastered words stay in the rotation — they just come round rarely.
+        </p>
+    </div>
+
+    <div class="glass-panel" style="text-align: center;">
+        <h3 style="color: #f472b6; margin-bottom: 1rem;">How They Are Going</h3>
+        <div class="dashboard-grid">
+            <div class="stat-card">
+                <h3 style="color: #ef4444;">{{ stats.hard_count }}</h3>
+                <p>Hard or Pinned</p>
+            </div>
+            <div class="stat-card">
+                <h3 style="color: #94a3b8;">{{ stats.normal_count }}</h3>
+                <p>Normal</p>
+            </div>
+            <div class="stat-card">
+                <h3 style="color: #10b981;">{{ stats.easy_count }}</h3>
+                <p>Easy</p>
+            </div>
+            <div class="stat-card">
+                <h3 style="color: #38bdf8;">{{ stats.high_retention }}</h3>
+                <p>Recalled 80%+</p>
+            </div>
+        </div>
+        {% if stats.lapses %}
+        <p class="subtle" style="margin-top:1rem; font-size:0.85rem;">
+            {{ stats.lapses }} lapse{{ stats.lapses|pluralize }} so far — words forgotten after they had been learned.
+        </p>
+        {% endif %}
+    </div>
+
+    <div class="glass-panel">
+        <h3 style="color: #f472b6; margin-bottom: 1rem; text-align:center;">Next Two Weeks</h3>
+        <div style="display:flex; align-items:flex-end; gap:0.35rem; height:160px; padding:0 0.5rem;">
+            {% for day in forecast %}
+            <div style="flex:1; display:flex; flex-direction:column; justify-content:flex-end; align-items:center; height:100%;">
+                <span style="font-size:0.75rem; opacity:0.75; margin-bottom:0.25rem;">{{ day.count }}</span>
+                <div title="{{ day.day }}: {{ day.count }} due"
+                     style="width:100%; border-radius:4px 4px 0 0; background:linear-gradient(180deg,#a78bfa,#f472b6);
+                            height:{% widthratio day.count forecast_peak 100 %}%; min-height:2px;"></div>
+                <span style="font-size:0.7rem; opacity:0.55; margin-top:0.35rem;">{{ day.day|date:"D"|slice:":2" }}</span>
+            </div>
+            {% endfor %}
+        </div>
+        <p class="subtle" style="text-align:center; margin-top:1rem; font-size:0.85rem;">
+            Due dates are spread slightly so everything learned on one day does not come back on one day.
+        </p>
+    </div>
+
+    <div class="glass-panel" style="text-align: center;">
+        <a href="{% url 'dashboard' %}" class="pill">Dashboard</a>
+        <a href="{% url 'study_levels' %}" class="pill" style="margin-left:0.5rem;">Study</a>
+        <a href="{% url 'hard_words' %}" class="pill" style="margin-left:0.5rem;">Hard Words</a>
+    </div>
+</div>
+{% endblock %}

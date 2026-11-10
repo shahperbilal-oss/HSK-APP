@@ -10,7 +10,11 @@
             </p>
         </div>
         <div style="display:flex; gap:0.5rem; flex-wrap:wrap; justify-content:flex-end;">
-            <a href="?show_pinyin={% if show_pinyin %}0{% else %}1{% endif %}" class="pill">
+            <a href="?layout=columns&show_pinyin={% if show_pinyin %}1{% else %}0{% endif %}"
+               class="pill {% if layout == 'columns' %}is-active{% endif %}">Side by Side</a>
+            <a href="?layout=stacked&show_pinyin={% if show_pinyin %}1{% else %}0{% endif %}"
+               class="pill {% if layout == 'stacked' %}is-active{% endif %}">Stacked</a>
+            <a href="?layout={{ layout }}&show_pinyin={% if show_pinyin %}0{% else %}1{% endif %}" class="pill">
                 {% if show_pinyin %}Hide Pinyin{% else %}Show Pinyin{% endif %}
             </a>
             <a href="{% url 'saved_words' %}" class="pill">Saved Words</a>
@@ -46,27 +50,48 @@
 
     <p id="save-word-status" style="font-size:0.9rem; color:#10b981; min-height:1.2rem; margin-top:0.35rem;"></p>
 
+    {% if layout == 'columns' %}
+    <div class="story-columns {% if not show_pinyin %}is-two-column{% endif %}">
+        <div class="story-columns-head">
+            <div>Chinese</div>
+            {% if show_pinyin %}<div>Pinyin</div>{% endif %}
+            <div>English</div>
+        </div>
+        {% for row in rows %}
+        <div class="story-row">
+            <p class="story-line story-cell story-cell-cn">{% for token in row.tokens %}<span class="saveable-word" data-word="{{ token }}">{{ token }}</span>{% endfor %}</p>
+            {% if show_pinyin %}<p class="story-cell story-cell-py">{{ row.pinyin }}</p>{% endif %}
+            <p class="story-cell story-cell-en">{{ row.english }}</p>
+        </div>
+        {% endfor %}
+    </div>
+    {% else %}
     <div style="margin-top:1rem;">
         <strong>Chinese</strong>
         <div style="margin-top:0.7rem;">
-            {% for line in chinese_lines %}
-            <p class="story-line" style="font-size:1.1rem; color:#f472b6;">{% for token in line %}<span class="saveable-word" data-word="{{ token }}">{{ token }}</span>{% endfor %}</p>
+            {% for row in rows %}
+            <p class="story-line" style="font-size:1.1rem; color:#f472b6;">{% for token in row.tokens %}<span class="saveable-word" data-word="{{ token }}">{{ token }}</span>{% endfor %}</p>
             {% endfor %}
         </div>
     </div>
 
-    {% if show_pinyin and story.pinyin_text %}
+    {% if show_pinyin %}
     <div style="margin-top:1rem;">
         <strong>Pinyin</strong>
-        <p style="white-space:pre-line; color:#6366f1; background:rgba(255,255,255,0.03); border:1px solid rgba(255,255,255,0.12); padding:0.9rem; border-radius:0.75rem;">{{ story.pinyin_text }}</p>
+        <div style="color:#6366f1; background:rgba(255,255,255,0.03); border:1px solid rgba(255,255,255,0.12); padding:0.9rem; border-radius:0.75rem;">
+            {% for row in rows %}<p style="margin:0 0 0.6rem 0;">{{ row.pinyin }}</p>{% endfor %}
+        </div>
     </div>
     {% endif %}
 
     {% if story.english_translation %}
     <div style="margin-top:1rem;">
         <strong>English</strong>
-        <p style="white-space:pre-line; color:#94a3b8; background:rgba(255,255,255,0.03); border:1px solid rgba(255,255,255,0.12); padding:0.9rem; border-radius:0.75rem;">{{ story.english_translation }}</p>
+        <div style="color:#94a3b8; background:rgba(255,255,255,0.03); border:1px solid rgba(255,255,255,0.12); padding:0.9rem; border-radius:0.75rem;">
+            {% for row in rows %}<p style="margin:0 0 0.6rem 0;">{{ row.english }}</p>{% endfor %}
+        </div>
     </div>
+    {% endif %}
     {% endif %}
 
     <div style="margin-top:2rem;">

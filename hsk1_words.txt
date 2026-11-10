@@ -1,0 +1,404 @@
+No|Chinese|Pinyin
+七|qī|Seven
+三|sān|Three
+上|shàng|upper
+上午|shàngwǔ|morning
+上学|shàng xué|go to school
+上次|shàng cì|last time
+上班|shàngbān|go to work
+上网|shàngwǎng|Surf the Internet
+上课|shàng kè|attend class; have a class
+上车|shàng chē|get on
+上边|shàng biān|above; on
+下午|xiàwǔ|Afternoon
+下次|xià cì|next time
+下班|xià bān|get off work
+下课|xià kè|finish class
+下车|xià chē|get off
+下边|xià biān|below; under
+下雨|xiàyǔ|rain
+下（名、动）|xià|below; under; next; go down; get off
+不|bù|No
+不大|bú dà|not big
+不客气|bú kè qì|You're welcome
+不对|bú duì|wrong
+不用|bú yòng|No need to
+东|dōng|east
+东西|dōngxi|thing
+东边|dōng biān|east side
+两（数）|liǎng|two
+个|gè|individual
+九|jiǔ|Nine
+书|shū|book
+书包|shū bāo|school bag
+书店|shū diàn|bookstore
+买|mǎi|buy
+了|le|past tense marker
+事|shì|thing
+二|èr|Two
+五|wǔ|Five
+人|rén|people
+什么|shénme|What
+今天|jīntiān|Today
+今年|jīn nián|this year
+介绍|jièshào|introduce
+从|cóng|from
+他|tā|he
+他们|tā men|they
+们（朋友们）|men （ péng|yǒu men ）
+会（动）|huì|can; be able to
+你|nǐ|you
+你们|nǐ men|you
+儿子|érzi|Son
+先|xiān|before
+先生|xiānsheng|Sir
+八|bā|eight
+六|liù|Six
+关上|guān shàng|close;shut to; turn off
+关（动）|guān|shut; close; turn off
+冷|lěng|cold
+几|jǐ|several
+出|chū|out
+出去|chū qù|go out
+出来|chū lái|come
+分（名、量）|fēn|minute; point; part; (measure word)
+别人|bié·rén|other people
+别的|bié de|other
+别（副）|bié|Don't
+到|dào|reach
+前|qián|front
+前天|qián tiān|the day before yesterday
+前边|qián biān|in front
+动|dòng|move
+动作|dòngzuò|action
+包|bāo|package
+包子|bāo zi|bun
+北|běi|north
+北京|běi jīng|Beijing
+北边|běi biān|North side
+十|shí|Ten
+午饭|wǔ fàn|lunch
+半|bàn|half
+半天|bàn tiān|half day
+半年|bàn nián|half a year
+南|nán|south
+南边|nán biān|south; south side
+去|qù|go
+去年|qùnián|Last year
+口|kǒu|mouth
+叫（动）|jiào|call; be called
+号|hào|Number/date
+吃|chī|eat
+吃饭|chī fàn|have meal
+同学|tóngxué|Classmate
+名字|míngzi|Name
+后|hòu|back; behind; after; later
+后天|hòu tiān|day after tomorrow
+后边|hòu biān|behind; back
+吗|ma|auxiliary word
+吧|ba|(interjection particle)
+听|tīng|hear
+听写|tīng xiě|dictation; dictate
+听到|tīng dào|hear
+听见|tīng jiàn|hear
+告诉|gàosu|tell
+呢|ne|auxiliary word
+和|hé|and
+哥哥｜哥|gē ge ｜ gē|elder brother
+哪|nǎ|which
+哪些|nǎ xiē|which
+哪儿|nǎr|where
+哪里|nǎ lǐ|where
+唱|chàng|sing
+唱歌|chàng gē|sing
+商场|shāng chǎng|mall; shopping mall
+商店|shāngdiàn|Shop
+喜欢|xǐhuan|like
+喝|hē|drink
+四|sì|Four
+回到|huí dào|back to
+回去|huí qù|go back
+回家|huí jiā|go home; return home
+回来|huí lái|come back; return
+回答|huídá|Answer
+回（动）|huí|go back; return
+国|guó|country; state; nation
+国外|guó wài|foreign; oversea; abroad
+国家|guójiā|Country
+图书馆|túshūguǎn|Library
+地|de|auxiliary word
+地|dì|ground
+地上|dì shàng|on the ground
+地图|dìtú|Map
+地方|dìfang|local
+地点|dìdiǎn|location
+坏|huài|bad
+块|kuài|block
+外|wài|abroad, outside
+外国|wài guó|foreign country
+外语|wài yǔ|foreign language
+外边|wài biān|outside
+多少|duōshao|how much
+多（形、代）|duō|many; much; more
+大|dà|large, big
+大学|dà xué|university
+大学生|dà xué shēng|university student
+天|tiān|day
+天气|tiānqì|weather
+太|tài|too
+女|nǚ|woman
+女人|nǚ ren|woman
+女儿|nǚ'ér|daughter
+女孩儿|nǚ háir|girl
+女朋友|nǚ péng yǒu|girlfriend
+女生|nǚ shēng|girl
+奶|nǎi|milk
+奶奶|nǎinai|grandma
+她|tā|she
+她们|tā men|they
+好吃|hǎochī|Yummy
+好听|hǎo tīng|pleasant to hear
+好玩儿|hǎo wánr|fun; interesting
+好看|hǎo kàn|good looking
+好（形）|hǎo|good
+妈妈｜妈|mā ma ｜|mā
+妹妹｜妹|mèi mei ｜|younger sister
+姐姐｜姐|jiě jie ｜ jiě|elder sister
+孩子|háizi|Children
+家|jiā|home
+家人|jiā rén|family
+家里|jiā lǐ|In the home
+对不起|duìbuqǐ|I'm sorry.
+对（形）|duì|right
+小|xiǎo|Small
+小姐|xiǎojiě|Miss
+小孩儿|xiǎo háir|child; kid
+小朋友|xiǎo péng yǒu child; kid|405
+少|shǎo|less
+就|jiù|as soon as; right away; then
+山|shān|mountain
+岁|suì|year, age
+工人|gōngrén|Worker
+工作|gōngzuò|work
+差|chà|differ from; bad; short of
+帮|bāng|help
+帮忙|bāng máng|help
+常|cháng|often
+常常|cháng cháng|often
+干|gàn|do
+干|gān|dry
+干什么|gàn shén me|What to do
+干净|gānjìng|clean
+年|nián|year
+床|chuáng|bed
+开|kāi|open
+开会|kāi huì|have a meeting
+开玩笑|kāiwánxiào|Make fun of
+开车|kāi chē|drive; drive a car
+弟弟｜弟|dì di ｜ dì|younger brother
+很|hěn|very
+得到|dé dào|get
+忘|wàng|forget
+忘记|wàngjì|forget
+忙|máng|busy
+快|kuài|fast
+您|nín|you
+想|xiǎng|think
+慢|màn|slow
+我|wǒ|I
+我们|wǒmen|We
+房子|fáng zi|house; building
+房间|fángjiān|Room
+手|shǒu|hand
+手机|shǒujī|Mobile phone
+打开|dǎ kāi|turn on
+打球|dǎ qiú|play ball
+打电话|dǎ diàn huà|make a phonecall
+打车|dǎ chē|take a taxi
+打（动）|dǎ|hit, take
+拿|ná|take
+放|fàng|discharge
+放假|fàng jià|holiday; have a holiday
+放学|fàng xué|off school
+教|jiāo|teach
+教学楼|jiào xué lóu|teaching building
+旁边|pángbiān|Side
+日|rì|date
+日期|rìqī|Date
+时候|shíhou|time
+时间|shíjiān|time
+明天|míngtiān|Tomorrow
+明年|míng nián|next year
+明白|míngbai|clear
+是|shì|yes
+是不是|shì bú shì|isn't it?
+晚|wǎn|late
+晚上|wǎnshang|Night
+晚饭|wǎn fàn|dinner
+朋友|péngyou|Friend
+本子|běn zi|book
+本（量）|běn|(measure word for books or volumes)
+机场|jīchǎng|Airport
+机票|jī piào|air ticket
+来|lái|come
+来到|lái dào|come; arrive
+杯|bēi|cup
+杯子|bēi zi|cup
+树|shù|tree
+楼|lóu|floor
+楼上|lóu shàng|upstairs
+楼下|lóu xià|downstairs
+次（量）|cì|(measure word for times, frequency)
+歌|gē|song
+比|bǐ|particle used for comparison
+毛（量）|máo|a fractional unit of money in China
+水|shuǐ|water
+水果|shuǐguǒ|Fruits
+汉字|hàn zì|Chinese character
+汉语|hànyǔ|Chinese
+汽车|qì chē|car
+没|méi|no
+没事儿|méi shìr|It's okay
+没什么|méi shén me|It's nothing
+没关系|méiguānxi|No problem
+没有|méi yǒu|have not; no
+洗|xǐ|wash
+洗手间|xǐshǒujiān|Restroom
+渴|kě|thirsty
+火车|huǒ chē|train
+点|diǎn|spot
+热|rè|heat
+爱好|ài hào|hobby
+爸爸｜爸|bàba ｜ bà|dad
+牛奶|niúnǎi|milk
+玩儿|wánr|play
+现在|xiànzài|Now
+班|bān|class
+球|qiú|ball
+生日|shēngrì|Birthday
+生气|shēngqì|get angry
+生病|shēngbìng|Fall ill
+电|diàn|electricity
+电影|diànyǐng|Film
+电影院|diàn yǐng|yuàn
+电脑|diànnǎo|Computer
+电视|diànshì|television
+电视机|diàn shì jī|television
+电话|diàn huà|phone
+男|nán|Man
+男人|nán ren|man
+男孩儿|nán háir|boy
+男朋友|nán péng yǒu|boyfriend
+男生|nán shēng|boy
+病|bìng|disease
+病人|bìng rén|patient
+白天|bái tiān|day
+白（形）|bái|white
+百|bǎi|hundred
+的|de|(aux.)
+看|kàn|see
+看到|kàn dào|see
+看病|kàn bìng|see a doctor
+看见|kànjiàn|seeing
+睡|shuì|sleep
+睡觉|shuìjiào|sleep
+票|piào|ticket
+穿|chuān|wear
+第（第二）|dì （ dì èr ） auxiliary word for ordinal numbers|(second )
+等（动）|děng|wait
+米饭|mǐfàn|Steamed Rice
+累|lèi|tired
+给|gěi|give
+网上|wǎng shàng|online
+网友|wǎng yǒu|net friend
+老人|lǎo rén|old people; the aged
+老师|lǎoshī|Teacher
+老（形）|lǎo|old; aged
+考|kǎo|test; examine
+考试|kǎoshì|Examination
+肉|ròu|meat
+能|néng|can
+花（名）|huā|flower
+茶|chá|tea
+菜|cài|dish
+西|xī|west
+西边|xī biān|west; west side
+见|jiàn|see; meet
+见面|jiànmiàn|meet
+觉得|juéde|Think
+认真|rènzhēn|earnest
+认识|rènshi|know
+记|jì|remember
+记住|jì zhù|remember; keep in mind
+记得|jìdé|remember
+试|shì|try
+话|huà|word; words
+说|shuō|speak
+说话|shuōhuà|talk
+请|qǐng|please
+请假|qǐngjià|ask for leave
+请坐|qǐng zuò|please have a seat
+请进|qǐng jìn|please come in
+请问|qǐng wèn|excuse me
+读|dú|read
+读书|dú shū|reading; study
+课|kè|course
+课文|kè wén|text
+课本|kè běn|textbook
+谁|shéi|who
+贵|guì|noble
+起|qǐ|get up; start; rise
+起床|qǐchuáng|Get up
+起来|qǐlái|get up
+跑|pǎo|run
+跟|gēn|with
+路|lù|road
+路上|lù shàng|on the road
+路口|lù kǒu|intersection; crossing
+身上|shēn shàng|body; on one's body
+身体|shēntǐ|body
+车|chē|car
+车上|chē shàng|in the car
+车票|chē piào|ticket
+车站|chē zhàn|station
+过|guò|pass
+还|huán|return; pay back
+还|hái|also; still; yet
+还是|háishi|still
+还有|hái yǒu|also; in addition; besides
+进|jìn|enter
+进去|jìn qù|go in
+进来|jìn lái|come in
+送|sòng|give
+那些|nà xiē|those
+那儿|nàr|there
+那边|nà biān|there
+那里|nà lǐ|there
+那（代）|nà|that
+都|dōu|all
+里|lǐ|in
+里边|lǐ biān|inside
+钱|qián|money
+钱包|qián bāo|wallet
+错|cuò|wrong
+门|mén|door
+门口|mén kǒu|doorway
+门票|mén piào|tickets
+问|wèn|ask
+间|jiān|between; measure word for rooms
+难|nán|disaster; blame
+零｜〇|líng ｜ líng|zero
+非常|fēicháng|very
+面包|miànbāo|Bread
+面条儿|miàn tiáor|noodles
+风|fēng|wind
+飞|fēi|fly
+飞机|fēijī|aircraft
+饭|fàn|rice; meal
+饭店|fàndiàn|restaurant
+饿|è|hungry
+马上|mǎshàng|Right off
+马路|mǎ lù|road; street
+高|gāo|high
+高兴|gāoxìng|happy
+鸡蛋|jīdàn|Egg

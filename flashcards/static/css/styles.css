@@ -385,3 +385,94 @@ th {
 .saved-word {
   background: rgba(16, 185, 129, 0.25);
 }
+
+/* Side-by-side reading: one grid row per paragraph, so the Chinese, its
+   pinyin and the translation stay level with each other. */
+.story-columns {
+  margin-top: 1.2rem;
+  border: 1px solid var(--glass-border);
+  border-radius: 12px;
+  overflow: hidden;
+}
+
+.story-columns-head,
+.story-row {
+  display: grid;
+  grid-template-columns: 1.1fr 1fr 1fr;
+  gap: 1.2rem;
+}
+
+.story-columns.is-two-column .story-columns-head,
+.story-columns.is-two-column .story-row {
+  grid-template-columns: 1.1fr 1fr;
+}
+
+.story-columns-head {
+  position: sticky;
+  top: 0;
+  z-index: 1;
+  padding: 0.7rem 1rem;
+  background: rgba(139, 92, 246, 0.18);
+  backdrop-filter: blur(8px);
+  border-bottom: 1px solid var(--glass-border);
+  font-size: 0.8rem;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--text-main);
+}
+
+.story-row {
+  padding: 0.9rem 1rem;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.07);
+  transition: background 0.2s ease;
+}
+
+.story-row:last-child {
+  border-bottom: none;
+}
+
+.story-row:hover {
+  background: rgba(167, 139, 250, 0.1);
+}
+
+.story-cell {
+  margin: 0;
+  line-height: 1.75;
+}
+
+/* The paragraph itself is the hover target in this layout, so the stacked
+   view's own highlight would double up. */
+.story-row .story-line:hover {
+  background: none;
+}
+
+.story-cell-cn {
+  font-size: 1.15rem;
+  color: #f472b6;
+}
+
+.story-cell-py {
+  color: #818cf8;
+}
+
+.story-cell-en {
+  color: #94a3b8;
+}
+
+@media (max-width: 900px) {
+  /* Three columns stop being readable well before phone width. */
+  .story-columns-head {
+    display: none;
+  }
+  .story-columns .story-row,
+  .story-columns.is-two-column .story-row {
+    grid-template-columns: 1fr;
+    gap: 0.35rem;
+  }
+  .story-cell-py,
+  .story-cell-en {
+    padding-left: 0.75rem;
+    border-left: 2px solid rgba(139, 92, 246, 0.45);
+  }
+}

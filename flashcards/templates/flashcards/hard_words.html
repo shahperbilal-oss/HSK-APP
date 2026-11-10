@@ -1,7 +1,17 @@
 {% extends 'flashcards/base.html' %}
 {% block content %}
 <div class="glass-panel">
-    <h2>{{ difficulty_label }} Words</h2>
+    <div class="page-header">
+        <div>
+            <h2>{{ difficulty_label }} Words</h2>
+            <p>Review your {{ difficulty_label|lower }} vocabulary in one place.</p>
+        </div>
+        {% if difficulty_label == 'Hard' %}
+        <div>
+            <a href="{% url 'export_hard_words_pdf' %}" class="btn" style="background:#ef4444;">Export Hard Words PDF</a>
+        </div>
+        {% endif %}
+    </div>
     {% if user_words %}
     <div class="table-container">
         <table>

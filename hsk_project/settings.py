@@ -10,6 +10,7 @@ For the full list of settings and their values, see
 https://docs.djangoproject.com/en/6.0/ref/settings/
 """
 
+import os
 from pathlib import Path
 
 # Build paths inside the project like this: BASE_DIR / 'subdir'.
@@ -25,7 +26,15 @@ SECRET_KEY = 'django-insecure-%2rz1*9r*zi-c6=x-6k(asssip-+ook+lxpa_v@uo-2_smiol2
 # SECURITY WARNING: don't run with debug turned on in production!
 DEBUG = True
 
-ALLOWED_HOSTS = []
+# Hosts that may reach the site. Django only allows localhost by default, so
+# opening the app from another device on the network (a phone, a second
+# computer) needs this machine's address listed here. In DEBUG the dev server
+# accepts any host; set DJANGO_ALLOWED_HOSTS="host1,host2" to narrow it.
+ALLOWED_HOSTS = [
+    host.strip()
+    for host in os.environ.get("DJANGO_ALLOWED_HOSTS", "*" if DEBUG else "").split(",")
+    if host.strip()
+]
 
 
 # Application definition

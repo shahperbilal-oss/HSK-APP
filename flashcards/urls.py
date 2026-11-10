@@ -9,6 +9,7 @@ urlpatterns = [
     path('words/', views.word_list, name='word_list'),
     path('init_user_words/', views.init_user_words, name='init_user_words'),
     path('words/hard/', views.hard_words, name='hard_words'),
+    path('words/hard/export/pdf/', views.export_hard_words_pdf, name='export_hard_words_pdf'),
     path('words/easy/', views.easy_words, name='easy_words'),
     path('study/hard/', views.study_hard_words, name='study_hard_words'),
     path('study/easy/', views.study_easy_words, name='study_easy_words'),

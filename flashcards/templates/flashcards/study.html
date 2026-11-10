@@ -5,7 +5,7 @@
         <div class="page-header" style="align-items:center;">
             <div style="text-align:left;">
                 <h2>Study Session <span class="badge badge-pink" style="margin-left:0.5rem;">HSK {{ level }}</span></h2>
-                <p class="subtle">Space/Enter flips. 1=Forgot, 2=Hard, 3/Enter=Easy.</p>
+                <p class="subtle">Space/Enter flips. 1=Again, 2=Hard, 3/Enter=Good, 4=Easy, P=Pin.</p>
             </div>
             <div style="background: rgba(255,255,255,0.06); border:1px solid rgba(255,255,255,0.12); padding: 0.6rem 1rem; border-radius: 12px; text-align:right;">
                 <div class="subtle" style="margin-bottom:0.15rem;">Today</div>
@@ -96,18 +96,20 @@
                     <div style="margin-top: 1.5rem; width: 100%;">
                         <div class="difficulty-label" style="margin-bottom: 0.5rem;">
                             <strong>Difficulty:</strong> {{ card.difficulty|title }}
+                            {% if card.flagged %}<span style="color:#a78bfa;">· 📌 pinned</span>{% endif %}
                         </div>
-                        
-                        {% if card.interval > 0 %}
+
                         <div style="font-size: 0.85rem; opacity: 0.8;">
-                            Next review: in {{ card.interval }} day{{ card.interval|pluralize }}
+                            {{ card.get_status_display }}
+                            {% if card.interval > 0 %}· current interval {{ card.interval }} day{{ card.interval|pluralize }}{% endif %}
+                            · ease {{ card.ease_factor|floatformat:2 }}
                         </div>
-                        {% endif %}
-                        
+
                         {% if card.times_reviewed > 0 %}
                         <div style="font-size: 0.85rem; opacity: 0.8; margin-top: 0.5rem;">
-                            Reviewed {{ card.times_reviewed }} time{{ card.times_reviewed|pluralize }} 
-                            ({{ card.times_correct }} correct, {{ card.times_incorrect }} incorrect)
+                            Reviewed {{ card.times_reviewed }} time{{ card.times_reviewed|pluralize }}
+                            ({{ card.times_correct }} recalled, {{ card.times_incorrect }} missed){% if card.lapses %},
+                            forgotten {{ card.lapses }} time{{ card.lapses|pluralize }} after learning{% endif %}
                         </div>
                         {% endif %}
                     </div>
@@ -116,15 +118,26 @@
         </div>
 
         <div class="study-actions" id="study-actions">
-            <a href="{% url 'review_action' card.id 'forgotten' %}" class="btn btn-danger">
-                ❌ Forgot it
-            </a>
-            <a href="{% url 'review_action' card.id 'hard' %}" class="btn" style="background-color: #f59e0b; color: #fff;">
-                😅 Hard (1 day)
-            </a>
-            <a href="{% url 'review_action' card.id 'remembered' %}" class="btn btn-success">
-                ✅ Easy ({{ card.interval|default:1 }} days)
-            </a>
+            {% for option in card.grade_options %}
+            <form method="post" action="{% url 'review_action' card.id option.action %}" style="display:inline;">
+                {% csrf_token %}
+                <input type="hidden" name="return_to" value="{{ request.get_full_path }}">
+                <input type="hidden" name="duration_ms" value="0" class="duration-field">
+                <button type="submit" class="btn grade-btn" data-grade="{{ forloop.counter }}"
+                        style="background-color: {{ option.colour }}; color: #fff;">
+                    {{ option.label }}
+                    <span style="display:block; font-size:0.75rem; opacity:0.85;">{{ option.preview }}</span>
+                </button>
+            </form>
+            {% endfor %}
+            <form method="post" action="{% url 'review_action' card.id 'flag' %}" style="display:inline;">
+                {% csrf_token %}
+                <input type="hidden" name="return_to" value="{{ request.get_full_path }}">
+                <button type="submit" id="flag-btn" class="btn"
+                        style="background-color: {% if card.flagged %}#7c3aed{% else %}#4b5563{% endif %}; color: #fff;">
+                    {% if card.flagged %}📌 Pinned{% else %}📌 Pin to Hard List{% endif %}
+                </button>
+            </form>
         </div>
         
         <div style="margin-top: 2rem;">
@@ -159,6 +172,16 @@
             }
         });
         
+        // How long the card was on screen, logged with the answer.
+        const shownAt = Date.now();
+        document.querySelectorAll('.duration-field').forEach((field) => {
+            field.form.addEventListener('submit', () => {
+                field.value = String(Date.now() - shownAt);
+            });
+        });
+
+        const grade = (position) => document.querySelector(`.grade-btn[data-grade="${position}"]`);
+
         // Keyboard shortcuts
         document.addEventListener('keydown', (e) => {
             if (!flashcard.classList.contains('is-flipped')) {
@@ -166,14 +189,18 @@
                     e.preventDefault();
                     flashcard.click();
                 }
-            } else {
-                if (e.code === 'Digit1' || e.code === 'Numpad1') {
-                    document.querySelector('.btn-danger')?.click();
-                } else if (e.code === 'Digit2' || e.code === 'Numpad2') {
-                    document.querySelectorAll('.btn')[1]?.click();
-                } else if (e.code === 'Digit3' || e.code === 'Numpad3' || e.code === 'Enter') {
-                    document.querySelector('.btn-success')?.click();
-                }
+                return;
+            }
+            if (e.code === 'Digit1' || e.code === 'Numpad1') {
+                grade(1)?.click();
+            } else if (e.code === 'Digit2' || e.code === 'Numpad2') {
+                grade(2)?.click();
+            } else if (e.code === 'Digit3' || e.code === 'Numpad3' || e.code === 'Enter') {
+                grade(3)?.click();
+            } else if (e.code === 'Digit4' || e.code === 'Numpad4') {
+                grade(4)?.click();
+            } else if (e.code === 'KeyP') {
+                document.getElementById('flag-btn')?.click();
             }
         });
     }
